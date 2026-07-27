@@ -1,336 +1,513 @@
 /**
- * Match Creation Screen
- * Create a new match with full format options, team names, and configuration
- * Supports: T20, ODI, T10, The Hundred, Test, Custom overs
+ * Match Creation Screen - Multi-Step Flow with Dark Emerald Aesthetics
+ * 
+ * Multi-Step Flow:
+ * 1. Match Format
+ * 2. Teams
+ * 3. Venue & Details
+ * 4. Toss
+ * 5. Playing XI
+ * 6. Start Match Summary
  */
-import { ScrollView, Text, View, TouchableOpacity, TextInput, Platform } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { useColors } from "@/hooks/use-colors";
+import { useState, useCallback } from "react";
 import * as Haptics from "expo-haptics";
+import { GlassCard } from "@/components/ui/glass-card";
+import { GlassButton } from "@/components/ui/glass-button";
+import { GlassInput } from "@/components/ui/glass-input";
+import { useResponsive } from "@/hooks/use-responsive";
+import { useScrollPadding } from "@/hooks/use-scroll-padding";
+import { trpc } from "@/lib/trpc";
+import { useAuthContext } from "@/lib/auth-context";
 
-const FORMAT_OPTIONS = [
+import { MatchFormat as EngineMatchFormat, validateMatchInput, TossDecision, type MatchInputValidation } from "@/lib/cricket/advanced-rules-engine";
+
+function toEngineFormat(fmt: string): EngineMatchFormat {
+  const map: Record<string, EngineMatchFormat> = {
+    "T20": EngineMatchFormat.T20,
+    "ODI": EngineMatchFormat.ODI,
+    "T10": EngineMatchFormat.T10,
+    "the_hundred": EngineMatchFormat.THE_HUNDRED,
+    "test": EngineMatchFormat.TEST,
+    "custom": EngineMatchFormat.CUSTOM,
+  };
+  return map[fmt] ?? EngineMatchFormat.T20;
+}
+
+type FrontendMatchFormat = "T20" | "ODI" | "T10" | "the_hundred" | "test" | "custom";
+
+interface FormatOption {
+  id: FrontendMatchFormat;
+  label: string;
+  overs: number;
+  description: string;
+  custom?: boolean;
+  noOvers?: boolean;
+}
+
+const FORMAT_OPTIONS: FormatOption[] = [
   { id: "T20", label: "T20", overs: 20, description: "20 overs per side • ~3 hrs" },
   { id: "ODI", label: "ODI", overs: 50, description: "50 overs per side • ~8 hrs" },
   { id: "T10", label: "T10", overs: 10, description: "10 overs per side • ~1.5 hrs" },
   { id: "the_hundred", label: "The Hundred", overs: 100, description: "100 balls per side • ~2.5 hrs", noOvers: true },
-  { id: "test", label: "Test", overs: 0, description: "Unlimited overs • Up to 5 days", noOvers: true },
-  { id: "custom", label: "Custom", overs: 0, description: "Set your own rules", custom: true },
-] as const;
+  { id: "test", label: "Test", overs: 0, description: "Unlimited overs • Multi-day", noOvers: true },
+  { id: "custom", label: "Custom", overs: 0, description: "Custom overs & rules", custom: true },
+];
 
-type MatchFormat = "T20" | "ODI" | "T10" | "the_hundred" | "test" | "custom";
+const STEPS = [
+  { id: 1, name: "Format" },
+  { id: 2, name: "Teams" },
+  { id: 3, name: "Venue" },
+  { id: 4, name: "Toss" },
+  { id: 5, name: "Roster" },
+  { id: 6, name: "Start" },
+];
 
-/**
- * Match Creation Screen
- * Complete form for setting up a new cricket match
- */
 export default function CreateMatchScreen() {
+  const { paddingBottom } = useScrollPadding();
   const router = useRouter();
-  const colors = useColors();
-  const [team1Name, setTeam1Name] = useState("");
-  const [team2Name, setTeam2Name] = useState("");
-  const [format, setFormat] = useState<MatchFormat>("T20");
+  const r = useResponsive();
+  const { isAuthenticated } = useAuthContext();
+  const createMatchMutation = trpc.match.create.useMutation();
+
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Step 1: Format
+  const [format, setFormat] = useState<FrontendMatchFormat>("T20");
   const [maxOvers, setMaxOvers] = useState("20");
-  const [venue, setVenue] = useState("");
+
+  // Step 2: Teams
+  const [team1Name, setTeam1Name] = useState("Thunder Warriors");
+  const [team2Name, setTeam2Name] = useState("Phoenix Rising");
+
+  // Step 3: Venue & Details
+  const [venue, setVenue] = useState("Central Park Ground");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [ballsPerOver, setBallsPerOver] = useState("6");
   const [playersPerSide, setPlayersPerSide] = useState("11");
-  const [inningsCount, setInningsCount] = useState("1");
 
-  const getOversForFormat = (fmt: MatchFormat): string => {
-    switch (fmt) {
-      case "T20": return "20";
-      case "ODI": return "50";
-      case "T10": return "10";
-      case "the_hundred": return "100 (balls)";
-      case "test": return "Unlimited";
-      default: return maxOvers;
+  // Step 4: Toss
+  const [tossWinner, setTossWinner] = useState<string>("");
+  const [tossDecision, setTossDecision] = useState<TossDecision>(TossDecision.BAT);
+
+  // Step 5: Playing XI
+  const [searchRoster, setSearchRoster] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const handleAction = useCallback(async (cb: () => void) => {
+    if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    cb();
+  }, []);
+
+  const handleNextStep = async () => {
+    if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (currentStep === 1) {
+      if (format === "custom" && (!maxOvers || parseInt(maxOvers, 10) <= 0)) {
+        setFieldErrors({ customOvers: "Please enter valid overs" });
+        return;
+      }
+    } else if (currentStep === 2) {
+      if (!team1Name.trim() || !team2Name.trim()) {
+        setFieldErrors({ team1: !team1Name.trim() ? "Enter Team 1" : "", team2: !team2Name.trim() ? "Enter Team 2" : "" });
+        return;
+      }
+    } else if (currentStep === 4) {
+      if (!tossWinner) {
+        setTossWinner(team1Name);
+      }
+    }
+
+    setFieldErrors({});
+    if (currentStep < 6) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      await handleStartMatch();
     }
   };
 
-  const handleCreateMatch = async () => {
-    if (Platform.OS !== "web") {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const handlePrevStep = async () => {
+    if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (currentStep > 1) {
+      setCurrentStep(prev => prev - 1);
+    } else {
+      router.back();
     }
+  };
 
+  const handleStartMatch = async () => {
+    setIsSubmitting(true);
     const t1 = team1Name.trim() || "Team A";
     const t2 = team2Name.trim() || "Team B";
 
-    if (t1 === t2) {
-      alert("Team names must be different");
-      return;
-    }
+    try {
+      let dbMatchId: string | undefined;
+      if (isAuthenticated) {
+        try {
+          const result = await createMatchMutation.mutateAsync({
+            format: toEngineFormat(format),
+            team1: t1,
+            team2: t2,
+            customOvers: format === "custom" ? parseInt(maxOvers, 10) : undefined,
+            venue: venue.trim() || undefined,
+          });
+          dbMatchId = result.matchId;
+        } catch (e) {
+          console.warn("[Create Match] API error:", e);
+        }
+      }
 
-    // Navigate to live match with all parameters
-    router.push({
-      pathname: "/match/live",
-      params: {
-        team1: t1,
-        team2: t2,
-        format: format,
-        overs: format === "custom" ? maxOvers : String(getOversForFormat(format)),
-        venue: venue.trim(),
-        ballsPerOver: showAdvanced ? ballsPerOver : "6",
-        playersPerSide: showAdvanced ? playersPerSide : "11",
-        inningsCount: showAdvanced ? inningsCount : "1",
-      },
-    });
+      router.push({
+        pathname: "/match/live",
+        params: {
+          team1: t1,
+          team2: t2,
+          format,
+          overs: format === "custom" ? maxOvers : format === "T20" ? "20" : format === "ODI" ? "50" : "10",
+          venue: venue.trim(),
+          tossWinner: tossWinner || t1,
+          tossDecision,
+          playersPerSide: playersPerSide || "11",
+          ballsPerOver: ballsPerOver || "6",
+          dbMatchId,
+        },
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleCancel = async () => {
-    if (Platform.OS !== "web") {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    router.back();
-  };
+  const targetPlayerCount = Math.max(1, parseInt(playersPerSide, 10) || 11);
+  const rosterNames = [
+    "Rohit Sharma (C)", "Virat Kohli", "Suryakumar Yadav", "Hardik Pandya (VC)", "Rishabh Pant (WK)", 
+    "Jasprit Bumrah", "Ravindra Jadeja", "Mohammed Shami", "Kuldeep Yadav", "Arshdeep Singh", "Mohammed Siraj"
+  ].slice(0, targetPlayerCount);
 
   return (
-    <ScreenContainer className="p-6">
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+    <ScreenContainer gradient glass>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View className="flex-1 gap-6">
-          {/* Header */}
-          <View className="gap-2">
-            <Text className="text-4xl font-bold text-foreground">Create Match</Text>
-            <Text className="text-base text-muted">
-              Set up a new cricket match
+        {/* Step Progress Bar Header */}
+        <View className="pt-2 pb-3 gap-2">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-xs font-black text-[#10B981] uppercase tracking-widest">
+              STEP {currentStep} OF 6 • {STEPS[currentStep - 1].name.toUpperCase()}
             </Text>
+            <Text className="text-xs font-semibold text-[#9CA3AF]">{Math.round((currentStep / 6) * 100)}% Complete</Text>
           </View>
-
-          {/* Teams */}
-          <View className="bg-surface rounded-xl p-4 gap-4 border border-border/50">
-            <Text className="text-lg font-semibold text-foreground">🏏 Teams</Text>
-            <View className="gap-2">
-              <Text className="text-sm font-semibold text-muted">Team 1 (Batting First)</Text>
-              <TextInput
-                className="bg-background border border-border rounded-xl px-4 py-3.5 text-foreground"
-                placeholder="Enter team 1 name"
-                placeholderTextColor={colors.muted + "80"}
-                value={team1Name}
-                onChangeText={setTeam1Name}
-                maxLength={30}
+          
+          {/* Progress Chips */}
+          <View className="flex-row gap-1.5">
+            {STEPS.map((s) => (
+              <View
+                key={s.id}
+                className={`h-1.5 flex-1 rounded-full ${
+                  s.id <= currentStep ? "bg-[#10B981]" : "bg-white/10"
+                }`}
               />
-            </View>
-            <View className="gap-2">
-              <Text className="text-sm font-semibold text-muted">Team 2 (Batting Second)</Text>
-              <TextInput
-                className="bg-background border border-border rounded-xl px-4 py-3.5 text-foreground"
-                placeholder="Enter team 2 name"
-                placeholderTextColor={colors.muted + "80"}
-                value={team2Name}
-                onChangeText={setTeam2Name}
-                maxLength={30}
-              />
-            </View>
-          </View>
-
-          {/* Match Format */}
-          <View className="bg-surface rounded-xl p-4 gap-4 border border-border/50">
-            <Text className="text-lg font-semibold text-foreground">📋 Match Format</Text>
-            <View className="flex-row gap-2 flex-wrap">
-              {FORMAT_OPTIONS.map((fmt) => (
-                <TouchableOpacity
-                  key={fmt.id}
-                  className={`rounded-xl px-4 py-3 active:opacity-80 ${
-                    format === fmt.id
-                      ? "bg-primary"
-                      : "bg-background border border-border"
-                  }`}
-                  style={{ minWidth: "47%" }}
-                  onPress={async () => {
-                    if (Platform.OS !== "web") {
-                      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }
-                    setFormat(fmt.id);
-                    if (!fmt.custom && !fmt.noOvers) {
-                      setMaxOvers(String(fmt.overs));
-                    }
-                  }}
-                >
-                  <Text className={`font-bold text-base ${
-                    format === fmt.id ? "text-background" : "text-foreground"
-                  }`}>
-                    {fmt.label}
-                  </Text>
-                  <Text className={`text-xs mt-0.5 ${
-                    format === fmt.id ? "text-background/80" : "text-muted"
-                  }`}>
-                    {fmt.description}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Custom Overs Input */}
-            {format === "custom" && (
-              <View className="gap-2">
-                <Text className="text-sm font-semibold text-muted">Overs per side</Text>
-                <TextInput
-                  className="bg-background border border-border rounded-xl px-4 py-3.5 text-foreground"
-                  placeholder="Enter max overs (e.g., 15)"
-                  placeholderTextColor={colors.muted + "80"}
-                  value={maxOvers}
-                  onChangeText={setMaxOvers}
-                  keyboardType="numeric"
-                />
-              </View>
-            )}
-
-            <View className="bg-background rounded-xl p-3">
-              <View className="flex-row justify-between items-center">
-                <Text className="text-sm text-muted">Overs per side</Text>
-                <Text className="text-lg font-bold text-primary">{getOversForFormat(format)}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Venue (Optional) */}
-          <View className="bg-surface rounded-xl p-4 gap-4 border border-border/50">
-            <Text className="text-lg font-semibold text-foreground">📍 Venue (Optional)</Text>
-            <TextInput
-              className="bg-background border border-border rounded-xl px-4 py-3.5 text-foreground"
-              placeholder="Enter venue name"
-              placeholderTextColor={colors.muted + "80"}
-              value={venue}
-              onChangeText={setVenue}
-              maxLength={50}
-            />
-          </View>
-
-          {/* Advanced Settings Toggle */}
-          <TouchableOpacity
-            className="bg-surface rounded-xl p-4 border border-border/50 active:opacity-80"
-            onPress={async () => {
-              if (Platform.OS !== "web") {
-                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-              setShowAdvanced(!showAdvanced);
-            }}
-          >
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <Text className="text-lg">⚙️</Text>
-                <Text className="text-lg font-semibold text-foreground">Advanced Settings</Text>
-              </View>
-              <Text className="text-lg text-muted">{showAdvanced ? "▲" : "▼"}</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Advanced Settings Panel */}
-          {showAdvanced && (
-            <View className="bg-surface rounded-xl p-4 gap-5 border border-border/50">
-              {/* Balls per over */}
-              <View className="gap-2">
-                <Text className="text-sm font-semibold text-muted">Balls per over</Text>
-                <View className="flex-row gap-2">
-                  {[4, 5, 6, 8].map(n => (
-                    <TouchableOpacity
-                      key={n}
-                      className={`px-4 py-2 rounded-lg ${ballsPerOver === String(n) ? "bg-primary" : "bg-background border border-border"}`}
-                      onPress={async () => {
-                        if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setBallsPerOver(String(n));
-                      }}
-                    >
-                      <Text className={`font-bold ${ballsPerOver === String(n) ? "text-background" : "text-foreground"}`}>{n}</Text>
-                    </TouchableOpacity>
-                  ))}
-                  <TextInput
-                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-foreground text-center"
-                    placeholder="Custom"
-                    placeholderTextColor={colors.muted + "80"}
-                    value={[4, 5, 6, 8].includes(Number(ballsPerOver)) ? "" : ballsPerOver}
-                    onChangeText={t => setBallsPerOver(t)}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-
-              {/* Players per side */}
-              <View className="gap-2">
-                <Text className="text-sm font-semibold text-muted">Players per side</Text>
-                <View className="flex-row gap-2">
-                  {[8, 11].map(n => (
-                    <TouchableOpacity
-                      key={n}
-                      className={`px-4 py-2 rounded-lg ${playersPerSide === String(n) ? "bg-primary" : "bg-background border border-border"}`}
-                      onPress={async () => {
-                        if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setPlayersPerSide(String(n));
-                      }}
-                    >
-                      <Text className={`font-bold ${playersPerSide === String(n) ? "text-background" : "text-foreground"}`}>{n}</Text>
-                    </TouchableOpacity>
-                  ))}
-                  <TextInput
-                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-foreground text-center"
-                    placeholder="Custom"
-                    placeholderTextColor={colors.muted + "80"}
-                    value={[8, 11].includes(Number(playersPerSide)) ? "" : playersPerSide}
-                    onChangeText={t => setPlayersPerSide(t)}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-
-              {/* Innings Count */}
-              <View className="gap-2">
-                <Text className="text-sm font-semibold text-muted">Innings per side</Text>
-                <View className="flex-row gap-2">
-                  {[1, 2].map(n => (
-                    <TouchableOpacity
-                      key={n}
-                      className={`px-4 py-2 rounded-lg ${inningsCount === String(n) ? "bg-primary" : "bg-background border border-border"}`}
-                      onPress={async () => {
-                        if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setInningsCount(String(n));
-                      }}
-                    >
-                      <Text className={`font-bold ${inningsCount === String(n) ? "text-background" : "text-foreground"}`}>{n === 1 ? "Single" : "Double"}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Presets note */}
-              <View className="bg-primary/5 rounded-xl p-3 border border-primary/20">
-                <Text className="text-xs text-muted">
-                  💡 These settings only apply to custom matches. Preset formats use standard cricket rules.
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Quick Tips */}
-          <View className="bg-primary/5 rounded-xl p-4 border border-primary/20">
-            <Text className="text-sm font-semibold text-primary mb-1">💡 Tips</Text>
-            <Text className="text-xs text-muted">
-              After creating the match, you'll do a coin toss and then start scoring ball-by-ball.
-              All cricket rules (extras, dismissals, powerplays, run rates) are automatically handled!
-            </Text>
-          </View>
-
-          {/* Action Buttons */}
-          <View className="flex-row gap-3 mt-2 pb-6">
-            <TouchableOpacity
-              className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-xl py-4 items-center active:opacity-80"
-              onPress={handleCancel}
-            >
-              <Text className="text-foreground font-semibold text-base">Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="flex-1 bg-primary rounded-xl py-4 items-center active:opacity-80"
-              onPress={handleCreateMatch}
-            >
-              <Text className="text-background font-semibold text-base">Create Match</Text>
-            </TouchableOpacity>
+            ))}
           </View>
         </View>
-      </ScrollView>
+
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: paddingBottom + 80 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="flex-1 gap-5">
+            {/* STEP 1: MATCH FORMAT */}
+            {currentStep === 1 && (
+              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5">
+                <Text className="text-xl font-black text-[#F9FAFB] tracking-tight">Select Match Format</Text>
+                <View className="flex-row flex-wrap gap-2.5">
+                  {FORMAT_OPTIONS.map((fmt) => {
+                    const selected = format === fmt.id;
+                    return (
+                      <TouchableOpacity
+                        key={fmt.id}
+                        onPress={() => handleAction(() => {
+                          setFormat(fmt.id);
+                          if (!fmt.custom && !fmt.noOvers) setMaxOvers(String(fmt.overs));
+                        })}
+                        className={`rounded-2xl p-4 min-w-[47%] border ${
+                          selected
+                            ? "bg-[#10B981] border-[#10B981]"
+                            : "bg-[#11201A] border-white/10 active:opacity-80"
+                        }`}
+                      >
+                        <Text className={`font-black text-lg ${selected ? "text-[#06120E]" : "text-[#F9FAFB]"}`}>
+                          {fmt.label}
+                        </Text>
+                        <Text className={`text-xs mt-1 font-semibold ${selected ? "text-[#06120E]/80" : "text-[#9CA3AF]"}`}>
+                          {fmt.description}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {format === "custom" && (
+                  <View className="gap-1 mt-2">
+                    <GlassInput
+                      label="Custom Overs Per Side"
+                      placeholder="e.g. 15"
+                      value={maxOvers}
+                      onChangeText={setMaxOvers}
+                      keyboardType="numeric"
+                      icon="🔄"
+                    />
+                    {fieldErrors.customOvers && (
+                      <Text className="text-xs text-[#EF4444] px-1 font-semibold">{fieldErrors.customOvers}</Text>
+                    )}
+                  </View>
+                )}
+              </GlassCard>
+            )}
+
+            {/* STEP 2: TEAMS */}
+            {currentStep === 2 && (
+              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5">
+                <Text className="text-xl font-black text-[#F9FAFB] tracking-tight">Team Identities</Text>
+                <View className="gap-4">
+                  <View className="gap-1">
+                    <GlassInput
+                      label="Team 1 (Batting First)"
+                      placeholder="e.g. Thunder Warriors"
+                      value={team1Name}
+                      onChangeText={setTeam1Name}
+                      icon="🛡️"
+                    />
+                    {fieldErrors.team1 && <Text className="text-xs text-[#EF4444] px-1 font-semibold">{fieldErrors.team1}</Text>}
+                  </View>
+
+                  <View className="gap-1">
+                    <GlassInput
+                      label="Team 2 (Batting Second)"
+                      placeholder="e.g. Phoenix Rising"
+                      value={team2Name}
+                      onChangeText={setTeam2Name}
+                      icon="⚡"
+                    />
+                    {fieldErrors.team2 && <Text className="text-xs text-[#EF4444] px-1 font-semibold">{fieldErrors.team2}</Text>}
+                  </View>
+                </View>
+              </GlassCard>
+            )}
+
+            {/* STEP 3: VENUE & DETAILS */}
+            {currentStep === 3 && (
+              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5">
+                <Text className="text-xl font-black text-[#F9FAFB] tracking-tight">Venue & Details</Text>
+                <GlassInput
+                  label="Venue Name"
+                  placeholder="e.g. Central Park Ground"
+                  value={venue}
+                  onChangeText={setVenue}
+                  icon="🏟️"
+                />
+
+                <TouchableOpacity
+                  className="bg-[#11201A] border border-white/10 rounded-2xl p-4 flex-row items-center justify-between"
+                  onPress={() => handleAction(() => setShowAdvanced(!showAdvanced))}
+                >
+                  <Text className="text-sm font-bold text-[#F9FAFB]">Advanced Rules (Balls & Players)</Text>
+                  <Text className="text-xs font-bold text-[#10B981]">{showAdvanced ? "Hide ▲" : "Show ▼"}</Text>
+                </TouchableOpacity>
+
+                {showAdvanced && (
+                  <View className="gap-3 bg-black/20 p-3 rounded-2xl border border-white/5">
+                    <View className="gap-1">
+                      <Text className="text-xs font-bold text-[#9CA3AF]">Balls per over</Text>
+                      <TextInput
+                        className="bg-[#11201A] text-[#F9FAFB] border border-white/10 rounded-xl p-3 font-bold"
+                        value={ballsPerOver}
+                        onChangeText={setBallsPerOver}
+                        keyboardType="numeric"
+                      />
+                    </View>
+
+                    <View className="gap-1">
+                      <Text className="text-xs font-bold text-[#9CA3AF]">Players per side</Text>
+                      <TextInput
+                        className="bg-[#11201A] text-[#F9FAFB] border border-white/10 rounded-xl p-3 font-bold"
+                        value={playersPerSide}
+                        onChangeText={setPlayersPerSide}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+                )}
+              </GlassCard>
+            )}
+
+            {/* STEP 4: TOSS */}
+            {currentStep === 4 && (
+              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5 items-center text-center">
+                <Text className="text-xl font-black text-[#F9FAFB] tracking-tight">Coin Toss</Text>
+                <View className="w-16 h-16 rounded-full bg-[#10B981]/20 border-2 border-[#10B981] items-center justify-center">
+                  <Text className="text-2xl">🪙</Text>
+                </View>
+                
+                <Text className="text-sm font-bold text-[#9CA3AF]">Who won the toss?</Text>
+                <View className="flex-row gap-3 w-full">
+                  <TouchableOpacity
+                    className={`flex-1 p-4 rounded-2xl border items-center ${
+                      tossWinner === team1Name ? "bg-[#10B981] border-[#10B981]" : "bg-[#11201A] border-white/10"
+                    }`}
+                    onPress={() => handleAction(() => setTossWinner(team1Name))}
+                  >
+                    <Text className={`font-bold ${tossWinner === team1Name ? "text-[#06120E]" : "text-[#F9FAFB]"}`}>
+                      {team1Name}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className={`flex-1 p-4 rounded-2xl border items-center ${
+                      tossWinner === team2Name ? "bg-[#10B981] border-[#10B981]" : "bg-[#11201A] border-white/10"
+                    }`}
+                    onPress={() => handleAction(() => setTossWinner(team2Name))}
+                  >
+                    <Text className={`font-bold ${tossWinner === team2Name ? "text-[#06120E]" : "text-[#F9FAFB]"}`}>
+                      {team2Name}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text className="text-sm font-bold text-[#9CA3AF] mt-2">Opted to</Text>
+                <View className="flex-row gap-3 w-full">
+                  <TouchableOpacity
+                    className={`flex-1 p-3 rounded-xl border items-center ${
+                      tossDecision === TossDecision.BAT ? "bg-[#10B981] border-[#10B981]" : "bg-[#11201A] border-white/10"
+                    }`}
+                    onPress={() => handleAction(() => setTossDecision(TossDecision.BAT))}
+                  >
+                    <Text className={`font-bold ${tossDecision === TossDecision.BAT ? "text-[#06120E]" : "text-[#F9FAFB]"}`}>
+                      🏏 Bat First
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className={`flex-1 p-3 rounded-xl border items-center ${
+                      tossDecision === TossDecision.BOWL ? "bg-[#10B981] border-[#10B981]" : "bg-[#11201A] border-white/10"
+                    }`}
+                    onPress={() => handleAction(() => setTossDecision(TossDecision.BOWL))}
+                  >
+                    <Text className={`font-bold ${tossDecision === TossDecision.BOWL ? "text-[#06120E]" : "text-[#F9FAFB]"}`}>
+                      ⚾ Bowl First
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </GlassCard>
+            )}
+
+            {/* STEP 5: PLAYING SQUAD */}
+            {currentStep === 5 && (
+              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-4">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-xl font-black text-[#F9FAFB]">
+                    {targetPlayerCount === 11 ? "Playing XI" : `Playing ${targetPlayerCount}`}
+                  </Text>
+                  <View className="bg-[#10B981]/20 rounded-full px-3 py-1 border border-[#10B981]/40">
+                    <Text className="text-xs font-black text-[#10B981]">
+                      {targetPlayerCount}/{targetPlayerCount} SELECTED
+                    </Text>
+                  </View>
+                </View>
+
+                <GlassInput
+                  placeholder="Search roster players..."
+                  value={searchRoster}
+                  onChangeText={setSearchRoster}
+                  icon="🔍"
+                />
+
+                <View className="gap-2 mt-1">
+                  {rosterNames.map((name, i) => (
+                    <View key={name} className="bg-[#11201A] border border-white/10 rounded-xl p-3 flex-row items-center justify-between">
+                      <View className="flex-row items-center gap-3">
+                        <View className="w-8 h-8 rounded-full bg-[#10B981]/20 items-center justify-center">
+                          <Text className="text-xs font-bold text-[#10B981]">{i + 1}</Text>
+                        </View>
+                        <Text className="text-sm font-bold text-[#F9FAFB]">{name}</Text>
+                      </View>
+                      <View className="w-5 h-5 rounded-md bg-[#10B981] items-center justify-center">
+                        <Text className="text-xs text-[#06120E] font-black">✓</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </GlassCard>
+            )}
+
+            {/* STEP 6: START MATCH SUMMARY */}
+            {currentStep === 6 && (
+              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5">
+                <Text className="text-xl font-black text-[#F9FAFB] tracking-tight">Match Ready</Text>
+                
+                <View className="bg-[#11201A] border border-white/10 rounded-2xl p-4 gap-3">
+                  <View className="flex-row justify-between border-b border-white/10 pb-2">
+                    <Text className="text-xs font-bold text-[#9CA3AF]">FORMAT</Text>
+                    <Text className="text-sm font-extrabold text-[#10B981]">{format} ({maxOvers} Overs)</Text>
+                  </View>
+
+                  <View className="flex-row justify-between border-b border-white/10 pb-2">
+                    <Text className="text-xs font-bold text-[#9CA3AF]">TEAMS</Text>
+                    <Text className="text-sm font-extrabold text-[#F9FAFB]">{team1Name} vs {team2Name}</Text>
+                  </View>
+
+                  <View className="flex-row justify-between border-b border-white/10 pb-2">
+                    <Text className="text-xs font-bold text-[#9CA3AF]">PLAYERS PER SIDE</Text>
+                    <Text className="text-sm font-extrabold text-[#F9FAFB]">{targetPlayerCount} a-side ({ballsPerOver || "6"} b/ov)</Text>
+                  </View>
+
+                  <View className="flex-row justify-between border-b border-white/10 pb-2">
+                    <Text className="text-xs font-bold text-[#9CA3AF]">VENUE</Text>
+                    <Text className="text-sm font-extrabold text-[#F9FAFB]">{venue || "Central Park Ground"}</Text>
+                  </View>
+
+                  <View className="flex-row justify-between">
+                    <Text className="text-xs font-bold text-[#9CA3AF]">TOSS</Text>
+                    <Text className="text-sm font-extrabold text-[#F59E0B]">{tossWinner || team1Name} opted to {tossDecision}</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  disabled={isSubmitting}
+                  className="bg-[#10B981] rounded-2xl py-4 items-center shadow-lg shadow-[#10B981]/30 active:scale-95"
+                  onPress={handleStartMatch}
+                >
+                  <Text className="text-[#06120E] font-black text-lg uppercase tracking-wider">
+                    {isSubmitting ? "Starting..." : "🚀 Launch Live Match"}
+                  </Text>
+                </TouchableOpacity>
+              </GlassCard>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Sticky Bottom Navigation Buttons */}
+        <View className="absolute bottom-4 left-4 right-4 flex-row gap-3">
+          <GlassButton
+            title={currentStep === 1 ? "Cancel" : "← Back"}
+            variant="secondary"
+            flex
+            onPress={handlePrevStep}
+          />
+          {currentStep < 6 && (
+            <GlassButton
+              title="Next Step →"
+              variant="primary"
+              flex
+              onPress={handleNextStep}
+            />
+          )}
+        </View>
+      </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }

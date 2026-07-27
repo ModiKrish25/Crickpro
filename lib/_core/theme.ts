@@ -7,6 +7,13 @@ export type ColorScheme = "light" | "dark";
 export const ThemeColors = themeConfig.themeColors;
 
 type ThemeColorTokens = typeof ThemeColors;
+
+// Glass-specific color tokens — hardcoded defaults, used by theme provider CSS variables
+export const GlassTokens = {
+  glass: { light: 'rgba(255,255,255,0.72)', dark: 'rgba(255,255,255,0.08)' },
+  glassBorder: { light: 'rgba(255,255,255,0.5)', dark: 'rgba(255,255,255,0.12)' },
+  glassHighlight: { light: 'rgba(255,255,255,0.8)', dark: 'rgba(255,255,255,0.15)' },
+};
 type ThemeColorName = keyof ThemeColorTokens;
 type SchemePalette = Record<ColorScheme, Record<ThemeColorName, string>>;
 type SchemePaletteItem = SchemePalette[ColorScheme];

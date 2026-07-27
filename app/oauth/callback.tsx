@@ -6,9 +6,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useResponsive } from "@/hooks/use-responsive";
 
 export default function OAuthCallback() {
   const router = useRouter();
+  const r = useResponsive();
   const params = useLocalSearchParams<{
     code?: string;
     state?: string;
@@ -60,9 +62,9 @@ export default function OAuthCallback() {
           }
 
           setStatus("success");
-          console.log("[OAuth] Web authentication successful, redirecting to home...");
+          console.log("[OAuth] Web authentication successful, redirecting to onboarding...");
           setTimeout(() => {
-            router.replace("/(tabs)");
+            router.replace("/onboarding");
           }, 1000);
           return;
         }
@@ -159,7 +161,7 @@ export default function OAuthCallback() {
           setStatus("success");
           console.log("[OAuth] Redirecting to home...");
           setTimeout(() => {
-            router.replace("/(tabs)");
+            router.replace("/onboarding");
           }, 1000);
           return;
         }
@@ -215,7 +217,7 @@ export default function OAuthCallback() {
           // Redirect to home after a short delay
           setTimeout(() => {
             console.log("[OAuth] Executing redirect...");
-            router.replace("/(tabs)");
+            router.replace("/onboarding");
           }, 1000);
         } else {
           console.error("[OAuth] No session token in result:", result);
@@ -240,27 +242,27 @@ export default function OAuthCallback() {
         {status === "processing" && (
           <>
             <ActivityIndicator size="large" />
-            <Text className="mt-4 text-base leading-6 text-center text-foreground">
+            <Text className={`mt-4 ${r.isPhone ? "text-sm" : "text-base"} leading-6 text-center text-foreground`}>
               Completing authentication...
             </Text>
           </>
         )}
         {status === "success" && (
           <>
-            <Text className="text-base leading-6 text-center text-foreground">
+            <Text className={`${r.isPhone ? "text-sm" : "text-base"} leading-6 text-center text-foreground`}>
               Authentication successful!
             </Text>
-            <Text className="text-base leading-6 text-center text-foreground">
+            <Text className={`${r.isPhone ? "text-sm" : "text-base"} leading-6 text-center text-foreground`}>
               Redirecting...
             </Text>
           </>
         )}
         {status === "error" && (
           <>
-            <Text className="mb-2 text-xl font-bold leading-7 text-error">
+            <Text className={`mb-2 ${r.isPhone ? "text-lg" : "text-xl"} font-bold leading-7 text-error`}>
               Authentication failed
             </Text>
-            <Text className="text-base leading-6 text-center text-foreground">
+            <Text className={`${r.isPhone ? "text-sm" : "text-base"} leading-6 text-center text-foreground`}>
               {errorMessage}
             </Text>
           </>

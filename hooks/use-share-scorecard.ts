@@ -18,7 +18,7 @@ export type ShareMethod = "image" | "text" | "download";
 
 interface UseShareScorecardReturn {
   /** Ref to attach to the ScorecardShare wrapper View */
-  scorecardRef: React.RefObject<View>;
+  scorecardRef: React.RefObject<View | null>;
   /** Whether a share operation is in progress */
   isSharing: boolean;
   /** Error message if sharing failed */

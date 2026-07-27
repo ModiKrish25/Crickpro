@@ -14,7 +14,7 @@
  * - Format & venue details
  */
 import React from "react";
-import { View, Platform } from "react-native";
+import { View } from "react-native";
 import Svg, {
   Rect,
   Text as SvgText,

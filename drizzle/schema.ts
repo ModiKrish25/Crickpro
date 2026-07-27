@@ -15,6 +15,12 @@ export const users = mysqlTable("users", {
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
+  /** Phone number in E.164 format (e.g., +14155550123) for phone OTP auth */
+  phone: varchar("phone", { length: 20 }),
+  /** Whether the phone number has been verified via OTP */
+  phoneVerified: int("phoneVerified").default(0),
+  /** Bcrypt/SHA-256 hashed password for local email/password auth (null for OAuth/phone users) */
+  passwordHash: varchar("passwordHash", { length: 255 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

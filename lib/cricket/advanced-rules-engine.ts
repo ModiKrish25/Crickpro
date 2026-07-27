@@ -284,6 +284,8 @@ export interface InningsState {
   runsInCurrentOver: number;
   isFreeHitActive: boolean;
   powerplayPhase: PowerplayPhase | null;
+  /** Name of the bowler who bowled the previous over (cannot bowl consecutive overs) */
+  lastOverBowlerName?: string;
 }
 
 export interface TossInfo {
@@ -343,6 +345,95 @@ export const DISMISSALS_VALID_ON_FREE_HIT: DismissalType[] = [
   DismissalType.HANDLED_BALL,
 ];
 
+// ============= MATCH INPUT VALIDATION =============
+
+export interface MatchInputValidation {
+  format: MatchFormat;
+  team1: string;
+  team2: string;
+  customOvers?: number;
+  customBallsPerOver?: number;
+  playersPerSide?: number;
+  customInningsCount?: number;
+}
+
+export interface ValidationError {
+  field: string;
+  message: string;
+}
+
+/**
+ * Validate match creation inputs before constructing a CricketRulesEngine.
+ * Returns an array of errors (empty = valid).
+ */
+export function validateMatchInput(input: MatchInputValidation): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  // Validate team names
+  const t1 = input.team1?.trim();
+  const t2 = input.team2?.trim();
+
+  if (!t1) {
+    errors.push({ field: "team1", message: "Team 1 name is required" });
+  }
+  if (!t2) {
+    errors.push({ field: "team2", message: "Team 2 name is required" });
+  }
+  if (t1 && t2 && t1.toLowerCase() === t2.toLowerCase()) {
+    errors.push({ field: "team2", message: "Teams must be different" });
+  }
+
+  // Validate format
+  const validFormats = Object.values(MatchFormat);
+  if (!validFormats.includes(input.format)) {
+    errors.push({ field: "format", message: `Invalid format. Must be one of: ${validFormats.join(", ")}` });
+  }
+
+  // Validate custom overs
+  if (input.customOvers !== undefined) {
+    if (!Number.isInteger(input.customOvers) || input.customOvers < 0) {
+      errors.push({ field: "customOvers", message: "Overs must be a non-negative integer" });
+    }
+    if (input.customOvers === 0 && input.format !== MatchFormat.TEST && input.format !== MatchFormat.CUSTOM) {
+      errors.push({ field: "customOvers", message: "Overs must be greater than 0 for limited-overs formats" });
+    }
+  }
+
+  // Validate balls per over
+  if (input.customBallsPerOver !== undefined) {
+    if (!Number.isInteger(input.customBallsPerOver) || input.customBallsPerOver < 1) {
+      errors.push({ field: "customBallsPerOver", message: "Balls per over must be a positive integer" });
+    }
+  }
+
+  // Validate players per side
+  if (input.playersPerSide !== undefined) {
+    if (!Number.isInteger(input.playersPerSide) || input.playersPerSide < 1) {
+      errors.push({ field: "playersPerSide", message: "Players per side must be a positive integer" });
+    }
+  }
+
+  // Validate innings count
+  if (input.customInningsCount !== undefined) {
+    if (!Number.isInteger(input.customInningsCount) || input.customInningsCount < 1) {
+      errors.push({ field: "customInningsCount", message: "Innings count must be a positive integer" });
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Throws the first validation error as an Error with the field prefixed.
+ * Useful for API endpoints to return a 400-level error.
+ */
+export function assertValidMatchInput(input: MatchInputValidation): void {
+  const errors = validateMatchInput(input);
+  if (errors.length > 0) {
+    throw new Error(`${errors[0].field}: ${errors[0].message}`);
+  }
+}
+
 // ============= CRICKET RULES ENGINE =============
 export class CricketRulesEngine {
   private state: MatchState;
@@ -382,7 +473,10 @@ export class CricketRulesEngine {
         [team2]: config.drsReviewsPerInnings,
       },
       maxOvers,
-      maxInnings: customInningsCount ?? config.maxInningsPerSide,
+      // Multiply by 2: config stores innings-per-side, but maxInnings is total innings per match
+      // For T20/ODI/T10 (1 per side): total = 2
+      // For Test (2 per side): total = 4 (engine caps at 2 for now)
+      maxInnings: customInningsCount ?? config.maxInningsPerSide * 2,
       ballsPerOver,
       pendingRoster: {
         batters: [],
@@ -561,9 +655,11 @@ export class CricketRulesEngine {
     if (extraType === ExtraType.LEG_BYE) innings.extras.legByes += runsOffBat || extraRuns;
     if (extraType === ExtraType.PENALTY) innings.extras.penalty += extraRuns;
 
-    // Update ball count (illegal deliveries still count as bowled but not as legal balls)
+    // Update ball count.
+    // Legal deliveries + wides count as balls bowled (affects overs display).
+    // No-balls do NOT count as balls bowled — the over is extended by one ball.
     innings.totalLegalDeliveries += isLegal ? 1 : 0;
-    innings.totalBalls += 1;
+    if (!isNoBall) innings.totalBalls += 1;
 
     // Update legal ball count and in-over tracking
     if (isLegal) {
@@ -927,6 +1023,7 @@ export class CricketRulesEngine {
       runsInCurrentOver: 0,
       isFreeHitActive: false,
       powerplayPhase: null,
+      lastOverBowlerName: undefined,
     };
   }
 
@@ -983,13 +1080,14 @@ export class CricketRulesEngine {
     const prevNonStriker = innings.currentNonStriker;
 
     // If the striker got out, new batter comes in
+    // Use currentBatterIndex BEFORE incrementing to avoid skipping the next batter
     if (outIndex === innings.currentStriker) {
-      innings.currentBatterIndex += 1;
       innings.currentStriker = innings.currentBatterIndex;
+      innings.currentBatterIndex += 1;
     }
     // If the non-striker got out (run out from non-striker end), same logic
     else if (outIndex === innings.currentNonStriker) {
-      innings.currentNonStriker = innings.currentBatterIndex + 1;
+      innings.currentNonStriker = innings.currentBatterIndex;
       innings.currentBatterIndex += 1;
     }
 
@@ -998,6 +1096,11 @@ export class CricketRulesEngine {
     const notOutIdx = innings.currentNonStriker;
     const newBatter = innings.battingOrder[newBatterIdx];
     const notOutBatter = innings.battingOrder[notOutIdx];
+
+    // Mark the new batter as batting (status was previously "did_not_bat")
+    if (newBatter) {
+      newBatter.status = "batting";
+    }
 
     // The partnership starts with the new batter and the not-out batter
     innings.currentPartnership = {
@@ -1041,22 +1144,23 @@ export class CricketRulesEngine {
   }
 
   private endOver(innings: InningsState): void {
+    // Check if current bowler bowled a maiden BEFORE resetting runsInCurrentOver
+    // A maiden is an over where 0 runs are scored off the bat AND no extras
+    const currentBowler = innings.bowlers[innings.currentBowlerIndex ?? -1];
+    if (currentBowler) {
+      if (innings.runsInCurrentOver === 0) {
+        currentBowler.maidens += 1;
+      }
+      // Track bowler who bowled this over to prevent consecutive overs (MCC Law 17.2)
+      innings.lastOverBowlerName = currentBowler.name;
+    }
+
     // Reset ball count for the over
     innings.ballsInCurrentOver = 0;
     innings.runsInCurrentOver = 0;
     
     // Auto-rotate strike at end of over (batters swap ends)
     this.swapStrike(innings);
-    
-    // Check if current bowler bowled a maiden
-    // A maiden is an over where 0 runs are scored off the bat AND no extras
-    const currentBowler = innings.bowlers[innings.currentBowlerIndex ?? -1];
-    if (currentBowler && innings.runsInCurrentOver === 0) {
-      currentBowler.maidens += 1;
-    }
-
-    // Note: in real cricket, a new bowler can't bowl consecutive overs
-    // This is enforced at the UI level when selecting the next bowler
   }
 
   private updateBowlerStats(innings: InningsState, params: {
@@ -1076,9 +1180,10 @@ export class CricketRulesEngine {
 
     const { runsOffBat, extraType, extraRuns, isWicket, isLegal, isNoBall, isWide } = params;
 
-    // Wides and no-balls count against the bowler's figures
+    // Wides and no-balls count against the bowler's figures (runs always count)
     bowler.runsConceded += runsOffBat + extraRuns;
-    bowler.totalBalls += 1;
+    // No-balls do NOT count as a ball bowled by the bowler
+    if (!isNoBall) bowler.totalBalls += 1;
     
     if (isLegal) {
       bowler.legalBalls += 1;
@@ -1098,7 +1203,12 @@ export class CricketRulesEngine {
     }
 
     // Calculate overs and economy
-    bowler.overs = Math.floor(bowler.legalBalls / this.state.ballsPerOver);
+    // Store overs as a pseudo-decimal where the fractional part represents balls
+    // in base 10 (e.g., 1 ball = 0.1, 7 balls = 1.1, 12 balls = 2.0).
+    // This avoids precision loss from Math.round on a base-6 fraction.
+    const completedOvers = Math.floor(bowler.legalBalls / this.state.ballsPerOver);
+    const remainingBalls = bowler.legalBalls % this.state.ballsPerOver;
+    bowler.overs = completedOvers + remainingBalls * 0.1;
     bowler.economyRate = bowler.overs > 0 || bowler.legalBalls > 0
       ? Math.round((bowler.runsConceded / (bowler.legalBalls / this.state.ballsPerOver)) * 100) / 100
       : 0;
@@ -1352,6 +1462,10 @@ export class CricketRulesEngine {
       return;
     }
 
+    // Prevent duplicate bowler entries in the same innings
+    const existing = innings.bowlers.find(b => b.name === name);
+    if (existing) return;
+
     innings.bowlers.push({
       playerId,
       name,
@@ -1372,7 +1486,25 @@ export class CricketRulesEngine {
     const innings = this.getCurrentInnings();
     if (!innings) return;
 
-    const idx = innings.bowlers.findIndex(b => b.name === bowlerName);
+    // MCC Law 17.2: Same bowler cannot bowl consecutive overs
+    // Enforced when multiple bowlers are available and we are at the start of a new over
+    if (
+      innings.lastOverBowlerName &&
+      innings.lastOverBowlerName === bowlerName &&
+      innings.bowlers.length > 1 &&
+      innings.ballsInCurrentOver === 0 &&
+      innings.totalBalls > 0
+    ) {
+      throw new Error(`Bowler ${bowlerName} cannot bowl consecutive overs (MCC Law 17.2). Select a different bowler.`);
+    }
+
+    let idx = innings.bowlers.findIndex(b => b.name === bowlerName);
+    if (idx === -1) {
+      // Auto-register bowler if not present yet
+      this.addBowler(`bw_${bowlerName}`, bowlerName);
+      idx = innings.bowlers.findIndex(b => b.name === bowlerName);
+    }
+
     if (idx >= 0) {
       innings.currentBowlerIndex = idx;
       innings.currentBowlerId = bowlerName;

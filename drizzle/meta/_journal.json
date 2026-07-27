@@ -15,6 +15,13 @@
       "when": 1783512408555,
       "tag": "0001_shocking_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1784794075898,
+      "tag": "0002_robust_tinkerer",
+      "breakpoints": true
     }
   ]
 }

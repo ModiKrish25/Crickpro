@@ -8,6 +8,7 @@ import { useColors } from "@/hooks/use-colors";
 import * as Haptics from "expo-haptics";
 import { ScorecardShare, type ShareScorecardData } from "@/components/scorecard-share";
 import { useShareScorecard } from "@/hooks/use-share-scorecard";
+import { useSafeBottomPadding } from "@/hooks/use-scroll-padding";
 
 interface ShareScorecardModalProps {
   data: ShareScorecardData;
@@ -15,6 +16,7 @@ interface ShareScorecardModalProps {
 }
 
 export function ShareScorecardModal({ data, onClose }: ShareScorecardModalProps) {
+  const bottomPadding = useSafeBottomPadding();
   const colors = useColors();
   const {
     scorecardRef,
@@ -73,7 +75,7 @@ export function ShareScorecardModal({ data, onClose }: ShareScorecardModalProps)
 
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ paddingBottom: 30 }}
+          contentContainerStyle={{ paddingBottom: bottomPadding }}
           showsVerticalScrollIndicator={false}
         >
           {/* Scorecard Preview */}

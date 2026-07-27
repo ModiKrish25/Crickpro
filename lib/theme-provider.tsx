@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Appearance, View, useColorScheme as useSystemColorScheme } from "react-native";
 import { colorScheme as nativewindColorScheme, vars } from "nativewind";
 
 import { SchemeColors, type ColorScheme } from "@/constants/theme";
+import { GlassTokens } from "@/lib/_core/theme";
 import { loadThemePreference, saveThemePreference, clearThemePreference } from "./theme-persistence";
 
 type ThemeContextValue = {
@@ -16,36 +17,52 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+// Apply scheme to document synchronously
+function applyDocumentScheme(scheme: ColorScheme) {
+  if (typeof document !== "undefined") {
+    const root = document.documentElement;
+    root.dataset.theme = scheme;
+    root.classList.toggle("dark", scheme === "dark");
+    const palette = SchemeColors[scheme];
+    Object.entries(palette).forEach(([token, value]) => {
+      root.style.setProperty(`--color-${token}`, value);
+    });
+    // Glass tokens
+    root.style.setProperty("--color-glass", GlassTokens.glass[scheme]);
+    root.style.setProperty("--color-glass-border", GlassTokens.glassBorder[scheme]);
+    root.style.setProperty("--color-glass-highlight", GlassTokens.glassHighlight[scheme]);
+  }
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const systemScheme = useSystemColorScheme() ?? "light";
-  const [colorScheme, setColorSchemeState] = useState<ColorScheme>(systemScheme);
+  const systemScheme = useSystemColorScheme() ?? "dark";
+  const [colorScheme, setColorSchemeState] = useState<ColorScheme>("dark"); // Default dark for CrickPro premium glass UI
   const [isUserSet, setIsUserSet] = useState(false);
 
   const applyScheme = useCallback((scheme: ColorScheme) => {
     nativewindColorScheme.set(scheme);
     Appearance.setColorScheme?.(scheme);
-    if (typeof document !== "undefined") {
-      const root = document.documentElement;
-      root.dataset.theme = scheme;
-      root.classList.toggle("dark", scheme === "dark");
-      const palette = SchemeColors[scheme];
-      Object.entries(palette).forEach(([token, value]) => {
-        root.style.setProperty(`--color-${token}`, value);
-      });
-    }
+    applyDocumentScheme(scheme);
   }, []);
 
-  // Load persisted theme on mount and apply once
+  // Apply default dark scheme synchronously on initial render
+  if (typeof document !== "undefined" && !document.documentElement.dataset.theme) {
+    applyDocumentScheme("dark");
+  }
+
+  useLayoutEffect(() => {
+    applyScheme(colorScheme);
+  }, [colorScheme, applyScheme]);
+
+  // Load persisted theme on mount
   useEffect(() => {
     loadThemePreference().then((preferred) => {
-      const scheme = preferred || systemScheme;
+      const scheme = preferred || systemScheme || "dark";
       setColorSchemeState(scheme);
       setIsUserSet(!!preferred);
-      // Apply immediately (no double apply since this is the only mount-time effect)
       applyScheme(scheme);
-
     });
-  }, []);
+  }, [systemScheme, applyScheme]);
 
   const setColorScheme = useCallback((scheme: ColorScheme) => {
     setColorSchemeState(scheme);
@@ -56,8 +73,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const resetToSystem = useCallback(() => {
     setIsUserSet(false);
-    setColorSchemeState(systemScheme);
-    applyScheme(systemScheme);
+    const scheme = systemScheme || "dark";
+    setColorSchemeState(scheme);
+    applyScheme(scheme);
     clearThemePreference();
   }, [applyScheme, systemScheme]);
 
@@ -73,6 +91,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         "color-success": SchemeColors[colorScheme].success,
         "color-warning": SchemeColors[colorScheme].warning,
         "color-error": SchemeColors[colorScheme].error,
+        // Glass tokens for frosted UI
+        "color-glass": GlassTokens.glass[colorScheme],
+        "color-glass-border": GlassTokens.glassBorder[colorScheme],
+        "color-glass-highlight": GlassTokens.glassHighlight[colorScheme],
       }),
     [colorScheme],
   );
@@ -89,7 +111,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeContext.Provider value={value}>
-      <View style={[{ flex: 1 }, themeVariables]}>{children}</View>
+      <View style={[{ flex: 1, backgroundColor: SchemeColors[colorScheme].background }, themeVariables]}>{children}</View>
     </ThemeContext.Provider>
   );
 }

@@ -10,14 +10,10 @@ export interface LeagueCardProps {
   matchesRemaining: number;
   startDate: string;
   onPress?: () => void;
+  staggerIndex?: number;
 }
 
-/**
- * League Card Component - Displays league information with glassmorphism
- * Uses GlassCard's spring press animation when onPress is provided.
- */
 export function LeagueCard({
-  id,
   name,
   format,
   totalTeams,
@@ -25,37 +21,31 @@ export function LeagueCard({
   matchesRemaining,
   startDate,
   onPress,
+  staggerIndex = -1,
 }: LeagueCardProps) {
-
   return (
-    <GlassCard
-      intensity="medium"
-      padding="md"
-      className="gap-3"
-      onPress={onPress}
-    >
+    <GlassCard intensity="medium" padding="md" radius="xl" className="gap-3" onPress={onPress} staggerIndex={staggerIndex}>
       <View className="flex-row justify-between items-start">
         <View className="flex-1">
-          <Text className="text-lg font-semibold text-foreground">{name}</Text>
+          <Text className="text-lg font-bold text-foreground tracking-tight">{name}</Text>
           <Text className="text-sm text-muted capitalize">{format} • {totalTeams} teams</Text>
         </View>
-        <View className="bg-primary rounded-full px-3 py-1">
-          <Text className="text-xs font-semibold text-background">{format.toUpperCase()}</Text>
+        <View className="bg-[#0066FF]/10 rounded-full px-3 py-1">
+          <Text className="text-[10px] font-semibold text-[#0066FF]">{format.toUpperCase()}</Text>
         </View>
       </View>
-
       <View className="flex-row gap-4">
         <View className="flex-1">
-          <Text className="text-xs text-muted">Matches Played</Text>
-          <Text className="text-lg font-semibold text-foreground">{matchesPlayed}</Text>
+          <Text className="text-[10px] text-muted">Matches</Text>
+          <Text className="text-lg font-bold text-foreground">{matchesPlayed}</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-xs text-muted">Remaining</Text>
-          <Text className="text-lg font-semibold text-foreground">{matchesRemaining}</Text>
+          <Text className="text-[10px] text-muted">Remaining</Text>
+          <Text className="text-lg font-bold text-foreground">{matchesRemaining}</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-xs text-muted">Start Date</Text>
-          <Text className="text-sm font-semibold text-foreground">{startDate}</Text>
+          <Text className="text-[10px] text-muted">Start Date</Text>
+          <Text className="text-sm font-bold text-foreground">{startDate}</Text>
         </View>
       </View>
     </GlassCard>

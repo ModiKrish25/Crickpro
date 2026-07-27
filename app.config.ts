@@ -103,11 +103,14 @@ const config: ExpoConfig = {
       "expo-splash-screen",
       {
         image: "./assets/images/splash-icon.png",
-        imageWidth: 200,
+        imageWidth: 100,
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        // Match the preloader's first cinematic frame (#050806 → #0A1A12 gradient)
+        // to eliminate the white flash between native splash and JS preloader
+        backgroundColor: "#050806",
         dark: {
-          backgroundColor: "#000000",
+          image: "./assets/images/splash-icon.png",
+          backgroundColor: "#050806",
         },
       },
     ],

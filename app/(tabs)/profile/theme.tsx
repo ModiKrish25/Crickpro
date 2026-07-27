@@ -7,21 +7,19 @@
  * - Visual preview cards showing light/dark appearance
  * - Persisted across sessions
  */
-import { ScrollView, Text, View, TouchableOpacity, Platform } from "react-native";
+import { Text, View, TouchableOpacity, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useThemeContext } from "@/lib/theme-provider";
-import { useColors } from "@/hooks/use-colors";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassHeader } from "@/components/ui/glass-header";
+import Animated, { FadeInUp } from "react-native-reanimated";
 
 export default function ThemeSettingsScreen() {
   const router = useRouter();
   const { colorScheme, setColorScheme, isUserSet, resetToSystem } = useThemeContext();
-  const colors = useColors();
-
   const isDark = colorScheme === "dark";
 
   const handleToggle = async () => {
@@ -40,7 +38,11 @@ export default function ThemeSettingsScreen() {
 
   return (
     <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        entering={FadeInUp.duration(400).springify().damping(20).stiffness(200)}
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="flex-1 gap-6 pb-8">
           {/* Back button */}
           <TouchableOpacity
@@ -176,7 +178,7 @@ export default function ThemeSettingsScreen() {
             </Text>
           </GlassCard>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </ScreenContainer>
   );
 }

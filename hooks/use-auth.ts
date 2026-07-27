@@ -1,6 +1,6 @@
 import * as Api from "@/lib/_core/api";
 import * as Auth from "@/lib/_core/auth";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 
 type UseAuthOptions = {
@@ -12,6 +12,8 @@ export function useAuth(options?: UseAuthOptions) {
   const [user, setUser] = useState<Auth.User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  const hasFetchedRef = useRef(false);
 
   const fetchUser = useCallback(async () => {
     console.log("[useAuth] fetchUser called");
@@ -85,7 +87,6 @@ export function useAuth(options?: UseAuthOptions) {
       await Api.logout();
     } catch (err) {
       console.error("[Auth] Logout API call failed:", err);
-      // Continue with logout even if API call fails
     } finally {
       await Auth.removeSessionToken();
       await Auth.clearUserInfo();
@@ -96,48 +97,26 @@ export function useAuth(options?: UseAuthOptions) {
 
   const isAuthenticated = useMemo(() => Boolean(user), [user]);
 
-  useEffect(() => {
-    console.log("[useAuth] useEffect triggered, autoFetch:", autoFetch, "platform:", Platform.OS);
-    if (autoFetch) {
-      if (Platform.OS === "web") {
-        // Web: fetch user from API directly (user will login manually if needed)
-        console.log("[useAuth] Web: fetching user from API...");
-        fetchUser();
-      } else {
-        // Native: check for cached user info first for faster initial load
-        Auth.getUserInfo().then((cachedUser) => {
-          console.log("[useAuth] Native cached user check:", cachedUser);
-          if (cachedUser) {
-            console.log("[useAuth] Native: setting cached user immediately");
-            setUser(cachedUser);
-            setLoading(false);
-          } else {
-            // No cached user, check session token
-            fetchUser();
-          }
-        });
-      }
-    } else {
-      console.log("[useAuth] autoFetch disabled, setting loading to false");
-      setLoading(false);
-    }
-  }, [autoFetch, fetchUser]);
+  const forceRefresh = useCallback(async () => {
+    hasFetchedRef.current = false;
+    await fetchUser();
+  }, [fetchUser]);
 
   useEffect(() => {
-    console.log("[useAuth] State updated:", {
-      hasUser: !!user,
-      loading,
-      isAuthenticated,
-      error: error?.message,
-    });
-  }, [user, loading, isAuthenticated, error]);
+    if (autoFetch && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchUser();
+    }
+  }, [autoFetch, fetchUser]);
 
   return {
     user,
     loading,
     error,
     isAuthenticated,
-    refresh: fetchUser,
+    refresh: forceRefresh,
     logout,
   };
 }
+
+export default useAuth;
