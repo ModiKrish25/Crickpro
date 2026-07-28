@@ -13,12 +13,17 @@ type IconSymbolName = keyof typeof MAPPING;
  * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
  * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
  */
-const MAPPING = {
+const MAPPING: Record<string, ComponentProps<typeof MaterialIcons>["name"]> = {
   "house.fill": "home",
+  "trophy.fill": "emoji-events",
+  "chart.bar.fill": "bar-chart",
+  "person.fill": "person",
+  "person.3.fill": "groups",
+  "people.fill": "groups",
   "paperplane.fill": "send",
   "chevron.left.forwardslash.chevron.right": "code",
   "chevron.right": "chevron-right",
-} as IconMapping;
+};
 
 /**
  * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
@@ -31,11 +36,11 @@ export function IconSymbol({
   color,
   style,
 }: {
-  name: IconSymbolName;
+  name: SymbolViewProps["name"] | string;
   size?: number;
   color: string | OpaqueColorValue;
   style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  return <MaterialIcons color={color} size={size} name={MAPPING[name] || "circle"} style={style} />;
 }

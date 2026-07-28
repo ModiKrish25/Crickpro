@@ -616,9 +616,21 @@ export class CricketRulesEngine {
       fielderInvolved,
     } = params;
 
-    const innings = this.getCurrentInnings();
-    if (!innings || innings.isComplete) {
+    let innings = this.getCurrentInnings();
+    if (!innings) {
       throw new Error("No active innings");
+    }
+
+    if (innings.isComplete) {
+      if (this.state.currentInnings === 1 && this.state.maxInnings > 1) {
+        this.state.currentInnings = 2;
+        this.startNewInnings();
+        innings = this.getCurrentInnings();
+        if (!innings) throw new Error("Failed to initialize second innings");
+      } else {
+        console.warn("Attempted to record delivery on completed match");
+        return null as any;
+      }
     }
 
     // Save snapshot of current innings state BEFORE any mutations
@@ -874,6 +886,9 @@ export class CricketRulesEngine {
 
   /** Get the match result */
   getResult(): MatchResult | undefined {
+    if (this.state.status !== MatchStatus.COMPLETED || this.state.result?.resultType === ResultType.IN_PROGRESS) {
+      return undefined;
+    }
     return this.state.result;
   }
 

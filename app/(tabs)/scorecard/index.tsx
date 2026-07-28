@@ -120,16 +120,16 @@ export default function ScorecardScreen() {
           </View>
 
           {/* New Match CTA */}
-          <GlassCard intensity="high" glowColor="#10B981" padding="xl" radius="xl" gradientBorder
-            className={`items-center ${r.isPhone ? "gap-2 py-6" : "gap-3 py-8"}`}
+          <GlassCard intensity="high" glowColor="#6366F1" padding="xl" radius="xl" gradientBorder
+            className={`items-center border-white/15 bg-[#1C1C1E] ${r.isPhone ? "gap-2 py-6" : "gap-3 py-8"}`}
             onPress={() => handleAction(() => router.push("/match/create"))} blurAmount={30}
             staggerIndex={0}>
-            <LiquidGlassOverlay color="#10B981" variant="sheen" speed={0.8} intensity={0.6} />
-            <View className="w-14 h-14 rounded-full bg-[#10B981]/15 items-center justify-center mb-1">
+            <LiquidGlassOverlay color="#6366F1" variant="sheen" speed={0.8} intensity={0.6} />
+            <View className="w-14 h-14 rounded-full bg-indigo-500/20 border border-indigo-400/40 items-center justify-center mb-1">
               <Text className="text-3xl">🏏</Text>
             </View>
-            <Text className="text-[#F9FAFB] font-extrabold text-lg sm:text-xl">Start New Match</Text>
-            <Text className="text-[#9CA3AF] text-xs font-semibold">Create a match and begin ball-by-ball scoring</Text>
+            <Text className="text-white font-black text-lg sm:text-xl">Start New Match</Text>
+            <Text className="text-slate-300 text-xs font-bold">Create a match and begin ball-by-ball scoring</Text>
           </GlassCard>
 
           {/* Mobile Horizontal Filter Bar */}
@@ -144,11 +144,11 @@ export default function ScorecardScreen() {
                 <TouchableOpacity
                   key={tab.id}
                   onPress={() => handleAction(() => setFilterTab(tab.id as any))}
-                  className={`px-3.5 py-1.5 rounded-full border ${
-                    active ? "bg-[#10B981] border-[#10B981]" : "bg-[#11201A] border-white/10"
+                  className={`px-4 py-2 rounded-full border ${
+                    active ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-indigo-400 shadow-md shadow-indigo-500/40" : "bg-[#1C1C1E] border-white/15 active:opacity-80"
                   }`}
                 >
-                  <Text className={`text-[11px] font-bold ${active ? "text-[#06120E]" : "text-[#9CA3AF]"}`}>
+                  <Text className={`text-xs font-black ${active ? "text-white" : "text-slate-300"}`}>
                     {tab.label}
                   </Text>
                 </TouchableOpacity>

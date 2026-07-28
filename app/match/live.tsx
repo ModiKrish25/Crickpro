@@ -232,19 +232,80 @@ export default function LiveMatchScreen() {
     }
   };
 
-  const handleRun = useCallback((runs: number) => { recordRun(runs); persistDelivery("run", runs); refresh(); }, [recordRun, persistDelivery, refresh]);
+  const setupSecondInningsIfNecessary = useCallback(() => {
+    const ui = getUIState();
+    if (!ui) return;
+
+    // Check if match is completely finished
+    if (ui.matchState.status === "completed" || ui.matchResult) {
+      setPhase("result");
+      return;
+    }
+
+    // Check if 1st innings just ended and 2nd innings needs setup
+    if (ui.isSecondInnings && (phase === "innings-1" || !ui.striker)) {
+      setPhase("innings-2");
+      const innings1BattingTeam = tossDecision === TossDecision.BAT ? (tossWinner || team1) : (tossWinner === team1 ? team2 : team1);
+      const innings2BattingTeam = innings1BattingTeam === team1 ? team2 : team1;
+      const bowlingTeam = innings2BattingTeam === team1 ? team2 : team1;
+      const battingLineup = innings2BattingTeam === team1 ? team1Lineup : team2Lineup;
+      const bowlingLineup = bowlingTeam === team1 ? team1Lineup : team2Lineup;
+
+      // Add batters for Innings 2 from batting team's lineup
+      for (const name of battingLineup) addBatter(name, name);
+      if (battingLineup.length >= 2) setOpeningBatters(battingLineup[0], battingLineup[1]);
+
+      // Add bowlers ONLY from the fielding team's lineup for Innings 2
+      for (let i = 0; i < bowlingLineup.length; i++) {
+        addBowler(`bw_${bowlingTeam}_${i}`, bowlingLineup[i]);
+      }
+      const initialBowler = bowlingLineup[bowlingLineup.length - 1] || bowlingLineup[0] || `${bowlingTeam} Bowler 1`;
+      setCurrentBowler(initialBowler);
+      refresh();
+    }
+  }, [getUIState, phase, tossDecision, tossWinner, team1, team2, team1Lineup, team2Lineup, addBatter, setOpeningBatters, addBowler, setCurrentBowler, refresh]);
+
+  const handleRun = useCallback((runs: number) => {
+    recordRun(runs);
+    persistDelivery("run", runs);
+    refresh();
+    setTimeout(() => setupSecondInningsIfNecessary(), 50);
+  }, [recordRun, persistDelivery, refresh, setupSecondInningsIfNecessary]);
+
   const handleExtra = useCallback((type: string, runsOffBat = 0, extraRuns = 1) => {
-    const extraMap: Record<string, ExtraType> = { "wide": ExtraType.WIDE, "no-ball": ExtraType.NO_BALL, "bye": ExtraType.BYE, "leg-bye": ExtraType.LEG_BYE, "penalty": ExtraType.PENALTY };
+    const extraMap: Record<string, ExtraType> = {
+      "wide": ExtraType.WIDE,
+      "no-ball": ExtraType.NO_BALL,
+      "no_ball": ExtraType.NO_BALL,
+      "bye": ExtraType.BYE,
+      "leg-bye": ExtraType.LEG_BYE,
+      "leg_bye": ExtraType.LEG_BYE,
+      "penalty": ExtraType.PENALTY
+    };
     const et = extraMap[type];
-    if (et) { recordExtra(et, runsOffBat, extraRuns); persistDelivery("extra", runsOffBat, type, extraRuns); refresh(); }
-  }, [recordExtra, persistDelivery, refresh]);
+    if (et) {
+      recordExtra(et, runsOffBat, extraRuns);
+      persistDelivery("extra", runsOffBat, type, extraRuns);
+      refresh();
+      setTimeout(() => setupSecondInningsIfNecessary(), 50);
+    }
+  }, [recordExtra, persistDelivery, refresh, setupSecondInningsIfNecessary]);
+
   const handleWicket = useCallback((type: string, batterOut?: string, fielderInvolved?: string) => {
-    const dismissMap: Record<string, DismissalType> = { "Bowled": DismissalType.BOWLED, "Caught": DismissalType.CAUGHT, "LBW": DismissalType.LBW, "Run Out": DismissalType.RUN_OUT, "Stumped": DismissalType.STUMPED, "Hit Wicket": DismissalType.HIT_WICKET };
+    const dismissMap: Record<string, DismissalType> = {
+      "Bowled": DismissalType.BOWLED,
+      "Caught": DismissalType.CAUGHT,
+      "LBW": DismissalType.LBW,
+      "Run Out": DismissalType.RUN_OUT,
+      "Stumped": DismissalType.STUMPED,
+      "Hit Wicket": DismissalType.HIT_WICKET
+    };
     const dt = dismissMap[type] || DismissalType.BOWLED;
     recordWicket(dt, batterOut || "Batter", fielderInvolved);
     persistDelivery("wicket", 0);
     refresh();
-  }, [recordWicket, persistDelivery, refresh]);
+    setTimeout(() => setupSecondInningsIfNecessary(), 50);
+  }, [recordWicket, persistDelivery, refresh, setupSecondInningsIfNecessary]);
   const handleEndMatch = async () => {
     if (Platform.OS !== "web") await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     endMatch();
@@ -406,115 +467,112 @@ export default function LiveMatchScreen() {
       {/* Pre-Match & Toss Phase */}
       {(phase === "pre-match" || phase === "toss") && (
         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-          <View className="flex-1 p-5 gap-6 justify-center">
-            <View className="items-center gap-2" style={{ opacity: 1 }}>
+          <View className="flex-1 p-5 gap-6 justify-center bg-[#070A12]">
+            <View className="items-center gap-2">
               <View className="flex-row items-center gap-2">
-                <Text className="text-xs font-bold text-[#0066FF] uppercase tracking-[2px]">{format.toUpperCase()} • {overs} Overs</Text>
+                <Text className="text-xs font-black text-indigo-400 uppercase tracking-[2px]">{format.toUpperCase()} • {overs} OVERS</Text>
                 {wsState.connected && wsState.watchers > 0 && (
-                  <View className="flex-row items-center gap-1 bg-[#34C759]/10 rounded-full px-2 py-0.5 border border-[#34C759]/20">
-                    <View className="w-1.5 h-1.5 rounded-full bg-[#34C759]" />
-                    <Text className="text-[9px] font-semibold text-[#34C759]">{wsState.watchers} watching</Text>
+                  <View className="flex-row items-center gap-1 bg-[#10B981]/20 rounded-full px-2.5 py-0.5 border border-[#10B981]/40">
+                    <View className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
+                    <Text className="text-[10px] font-black text-[#10B981]">{wsState.watchers} watching</Text>
                   </View>
                 )}
               </View>
-              <Text className="text-3xl font-bold text-foreground text-center tracking-tight">{team1}</Text>
-              <Text className="text-lg font-semibold text-muted">VS</Text>
-              <Text className="text-3xl font-bold text-foreground text-center tracking-tight">{team2}</Text>
+              <Text className="text-3xl font-black text-white text-center tracking-tight">{team1}</Text>
+              <View className="w-9 h-9 rounded-full bg-indigo-600/30 border border-indigo-400/40 items-center justify-center my-0.5">
+                <Text className="text-xs font-black text-indigo-300">VS</Text>
+              </View>
+              <Text className="text-3xl font-black text-white text-center tracking-tight">{team2}</Text>
             </View>
 
             {/* Toss Phase - Glass Card */}
-            <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5" blurAmount={30} staggerIndex={0}>
-              <Text className="text-xl font-bold text-foreground text-center tracking-tight">🪙 Coin Toss</Text>
+            <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5 bg-[#1C1C1E] border-white/15" blurAmount={30} staggerIndex={0}>
+              <Text className="text-xl font-black text-white text-center tracking-tight">🪙 Coin Toss</Text>
               {!tossWinner ? (
                 <>
-                  <Text className="text-sm text-muted text-center">Who won the toss?</Text>
+                  <Text className="text-sm font-bold text-slate-300 text-center">Who won the toss?</Text>
                   <View className="gap-3">
-                    <TouchableOpacity className="bg-[#0066FF] rounded-2xl py-4 items-center" onPress={() => handleTossWinner(team1)}>
-                      <Text className="text-white font-bold text-lg">{team1}</Text>
+                    <TouchableOpacity className="bg-gradient-to-r from-blue-500 to-indigo-600 border border-indigo-400 rounded-2xl py-4 items-center shadow-lg shadow-indigo-500/50 active:scale-95" onPress={() => handleTossWinner(team1)}>
+                      <Text className="text-white font-black text-lg">{team1}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity className="bg-white/50 dark:bg-white/[0.05] border border-[#0066FF] rounded-2xl py-4 items-center" onPress={() => handleTossWinner(team2)}>
-                      <Text className="text-[#0066FF] font-bold text-lg">{team2}</Text>
+                    <TouchableOpacity className="bg-[#2C2C2E] border border-white/20 rounded-2xl py-4 items-center active:scale-95" onPress={() => handleTossWinner(team2)}>
+                      <Text className="text-white font-black text-lg">{team2}</Text>
                     </TouchableOpacity>
                   </View>
                 </>
               ) : (
                 <>
-                  <Text className="text-xl font-bold text-[#0066FF] text-center">{tossWinner} won!</Text>
-                  <Text className="text-sm text-muted text-center">What do they want to do?</Text>
+                  <Text className="text-xl font-black text-indigo-400 text-center">{tossWinner} won!</Text>
+                  <Text className="text-sm font-bold text-slate-300 text-center">What do they want to do?</Text>
                   <View className="flex-row gap-3">
-                    <TouchableOpacity className="flex-1 bg-[#0066FF] rounded-2xl py-4 items-center" onPress={() => handleTossDecision(TossDecision.BAT)}>
-                      <Text className="text-white font-bold">🏏 Bat</Text>
+                    <TouchableOpacity className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 border border-indigo-400 rounded-2xl py-4 items-center shadow-lg shadow-indigo-500/50 active:scale-95" onPress={() => handleTossDecision(TossDecision.BAT)}>
+                      <Text className="text-white font-black text-base">🏏 Bat First</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity className="flex-1 bg-[#0066FF] rounded-2xl py-4 items-center" onPress={() => handleTossDecision(TossDecision.BOWL)}>
-                      <Text className="text-white font-bold">⚾ Bowl</Text>
+                    <TouchableOpacity className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 border border-indigo-400 rounded-2xl py-4 items-center shadow-lg shadow-indigo-500/50 active:scale-95" onPress={() => handleTossDecision(TossDecision.BOWL)}>
+                      <Text className="text-white font-black text-base">⚾ Bowl First</Text>
                     </TouchableOpacity>
                   </View>
                   <TouchableOpacity className="mt-2 py-2 items-center" onPress={editLineupsAgain}>
-                    <Text className="text-sm text-[#0066FF] font-semibold">← Edit Batting Order</Text>
+                    <Text className="text-sm text-indigo-400 font-extrabold">← Edit Batting Order</Text>
                   </TouchableOpacity>
                 </>
               )}
             </GlassCard>
 
-            <TouchableOpacity className="bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10 rounded-2xl py-3 items-center" onPress={() => router.back()}>
-              <Text className="text-foreground font-semibold">Cancel Match</Text>
+            <TouchableOpacity className="bg-[#1C1C1E] border border-white/20 rounded-2xl py-3.5 items-center active:scale-95" onPress={() => router.back()}>
+              <Text className="text-slate-300 font-extrabold text-sm">Cancel Match</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       )}
 
-      {/* Lineup Phase */}
+      {/* Lineup Phase (Set Batting Order) */}
       {phase === "lineup" && (
         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-          <View className="flex-1 p-5 gap-5">
+          <View className="flex-1 p-5 gap-5 bg-[#070A12]">
             <View className="gap-1">
-              <Text className="text-2xl font-bold text-foreground tracking-tight">📋 Set Batting Order</Text>
-              <Text className="text-sm text-muted">Drag players up/down to set the batting lineup</Text>
+              <Text className="text-2xl font-black text-white tracking-tight">📋 Set Batting Order</Text>
+              <Text className="text-xs font-semibold text-slate-400">Drag players up/down to set the batting lineup</Text>
             </View>
 
+            {/* Team Selection Tabs */}
             <View className="flex-row gap-2">
               <TouchableOpacity
-                className={`flex-1 py-3 rounded-2xl items-center ${editingTeam === 1 ? "bg-[#0066FF]" : "bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10"}`}
-                style={editingTeam !== 1 && Platform.OS === "web" ? {
-                  backdropFilter: "blur(12px) saturate(180%)",
-                  WebkitBackdropFilter: "blur(12px) saturate(180%)",
-                } as any : {}}
+                className={`flex-1 py-3.5 rounded-2xl items-center border ${editingTeam === 1 ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-indigo-400 shadow-lg shadow-indigo-500/50" : "bg-[#1C1C1E] border-white/15 active:opacity-80"}`}
                 onPress={() => {
                   if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setEditingTeam(1);
                 }}
               >
-                <Text className={`font-bold ${editingTeam === 1 ? "text-white" : "text-foreground"}`}>{team1}</Text>
-                <Text className={`text-xs ${editingTeam === 1 ? "text-white/70" : "text-muted"}`}>{team1Lineup.length} players</Text>
+                <Text className={`font-black text-base ${editingTeam === 1 ? "text-white" : "text-slate-200"}`}>{team1}</Text>
+                <Text className={`text-xs font-bold ${editingTeam === 1 ? "text-white/80" : "text-slate-400"}`}>{team1Lineup.length} players</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className={`flex-1 py-3 rounded-2xl items-center ${editingTeam === 2 ? "bg-[#0066FF]" : "bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10"}`}
-                style={editingTeam !== 2 && Platform.OS === "web" ? {
-                  backdropFilter: "blur(12px) saturate(180%)",
-                  WebkitBackdropFilter: "blur(12px) saturate(180%)",
-                } as any : {}}
+                className={`flex-1 py-3.5 rounded-2xl items-center border ${editingTeam === 2 ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-indigo-400 shadow-lg shadow-indigo-500/50" : "bg-[#1C1C1E] border-white/15 active:opacity-80"}`}
                 onPress={() => {
                   if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setEditingTeam(2);
                 }}
               >
-                <Text className={`font-bold ${editingTeam === 2 ? "text-white" : "text-foreground"}`}>{team2}</Text>
-                <Text className={`text-xs ${editingTeam === 2 ? "text-white/70" : "text-muted"}`}>{team2Lineup.length} players</Text>
+                <Text className={`font-black text-base ${editingTeam === 2 ? "text-white" : "text-slate-200"}`}>{team2}</Text>
+                <Text className={`text-xs font-bold ${editingTeam === 2 ? "text-white/80" : "text-slate-400"}`}>{team2Lineup.length} players</Text>
               </TouchableOpacity>
             </View>
 
+            {/* Captain & Wicketkeeper Cards */}
             <View className="flex-row gap-3">
-              <View className="flex-1 bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10 rounded-2xl p-3">
-                <Text className="text-[10px] font-semibold text-muted">👑 Captain</Text>
-                <Text className="text-sm font-bold text-foreground mt-1">{editingTeam === 1 ? (team1Captain || "—") : (team2Captain || "—")}</Text>
+              <View className="flex-1 bg-[#1C1C1E] border border-white/15 rounded-2xl p-3.5">
+                <Text className="text-[10px] font-black text-amber-400 uppercase tracking-wider">👑 Captain</Text>
+                <Text className="text-sm font-extrabold text-white mt-1">{editingTeam === 1 ? (team1Captain || "—") : (team2Captain || "—")}</Text>
               </View>
-              <View className="flex-1 bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10 rounded-2xl p-3">
-                <Text className="text-[10px] font-semibold text-muted">🧤 Wicketkeeper</Text>
-                <Text className="text-sm font-bold text-foreground mt-1">{editingTeam === 1 ? (team1Keeper || "—") : (team2Keeper || "—")}</Text>
+              <View className="flex-1 bg-[#1C1C1E] border border-white/15 rounded-2xl p-3.5">
+                <Text className="text-[10px] font-black text-indigo-400 uppercase tracking-wider">🧤 Wicketkeeper</Text>
+                <Text className="text-sm font-extrabold text-white mt-1">{editingTeam === 1 ? (team1Keeper || "—") : (team2Keeper || "—")}</Text>
               </View>
             </View>
 
-            <View className="bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10 rounded-2xl overflow-hidden">
+            {/* Player Roster List */}
+            <View className="bg-[#1C1C1E] border border-white/15 rounded-2xl overflow-hidden shadow-xl">
               {(editingTeam === 1 ? team1Lineup : team2Lineup).map((name, idx, arr) => {
                 const isOpener = idx === 0 || idx === 1;
                 const canUp = idx > 0;
@@ -522,33 +580,33 @@ export default function LiveMatchScreen() {
                 const isCaptain = (editingTeam === 1 && team1Captain === name) || (editingTeam === 2 && team2Captain === name);
                 const isKeeper = (editingTeam === 1 && team1Keeper === name) || (editingTeam === 2 && team2Keeper === name);
                 return (
-                  <View key={name} className={`flex-row items-center px-4 py-3 border-b border-white/10 dark:border-white/[0.06] ${isOpener ? "bg-[#0066FF]/[0.03]" : ""}`}>
-                    <View className={`w-8 h-8 rounded-full items-center justify-center mr-2 ${isOpener ? "bg-[#0066FF]" : "bg-white/50 dark:bg-white/10"}`}>
-                      <Text className={`text-xs font-bold ${isOpener ? "text-white" : "text-foreground"}`}>{idx + 1}</Text>
+                  <View key={name} className={`flex-row items-center px-4 py-3 border-b border-white/10 ${isOpener ? "bg-indigo-500/10" : ""}`}>
+                    <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isOpener ? "bg-indigo-500 shadow-md shadow-indigo-500/50" : "bg-[#2C2C2E]"}`}>
+                      <Text className={`text-xs font-black ${isOpener ? "text-white" : "text-slate-300"}`}>{idx + 1}</Text>
                     </View>
                     <View className="flex-1">
-                      <View className="flex-row items-center gap-1.5">
-                        <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{name}</Text>
-                        {isCaptain && <View className="bg-[#FF9F0A]/15 rounded-md px-1.5 py-0.5"><Text className="text-[10px] font-bold text-[#FF9F0A]">👑 C</Text></View>}
-                        {isKeeper && <View className="bg-[#0066FF]/15 rounded-md px-1.5 py-0.5"><Text className="text-[10px] font-bold text-[#0066FF]">🧤 WK</Text></View>}
-                        {isOpener && <View className="bg-[#0066FF]/10 rounded-md px-1.5 py-0.5"><Text className="text-[10px] font-bold text-[#0066FF]">OPEN</Text></View>}
+                      <View className="flex-row items-center gap-1.5 flex-wrap">
+                        <Text className="text-sm font-extrabold text-white" numberOfLines={1}>{name}</Text>
+                        {isCaptain && <View className="bg-amber-500/20 border border-amber-400/40 rounded-md px-1.5 py-0.5"><Text className="text-[10px] font-black text-amber-300">👑 C</Text></View>}
+                        {isKeeper && <View className="bg-blue-500/20 border border-blue-400/40 rounded-md px-1.5 py-0.5"><Text className="text-[10px] font-black text-blue-300">🧤 WK</Text></View>}
+                        {isOpener && <View className="bg-indigo-500/20 border border-indigo-400/40 rounded-md px-1.5 py-0.5"><Text className="text-[10px] font-black text-indigo-300">OPEN</Text></View>}
                       </View>
                     </View>
-                    <View className="flex-row gap-1">
-                      <TouchableOpacity onPress={() => openRenamePlayer(idx, name)} className="w-8 h-8 rounded-xl items-center justify-center bg-white/50 dark:bg-white/[0.04] border border-white/20 dark:border-white/10">
+                    <View className="flex-row gap-1.5">
+                      <TouchableOpacity onPress={() => openRenamePlayer(idx, name)} className="w-8 h-8 rounded-xl items-center justify-center bg-[#2C2C2E] border border-white/15 active:scale-95">
                         <Text className="text-xs">✏️</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => toggleCaptain(editingTeam, name)} className={`w-8 h-8 rounded-xl items-center justify-center ${isCaptain ? "bg-[#FF9F0A]/20 border border-[#FF9F0A]/40" : "bg-white/50 dark:bg-white/[0.08] border border-white/30 dark:border-white/10"}`}>
+                      <TouchableOpacity onPress={() => toggleCaptain(editingTeam, name)} className={`w-8 h-8 rounded-xl items-center justify-center ${isCaptain ? "bg-amber-500/30 border border-amber-400/50" : "bg-[#2C2C2E] border border-white/15"}`}>
                         <Text className="text-xs">👑</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => toggleKeeper(editingTeam, name)} className={`w-8 h-8 rounded-xl items-center justify-center ${isKeeper ? "bg-[#0066FF]/20 border border-[#0066FF]/40" : "bg-white/50 dark:bg-white/[0.08] border border-white/30 dark:border-white/10"}`}>
+                      <TouchableOpacity onPress={() => toggleKeeper(editingTeam, name)} className={`w-8 h-8 rounded-xl items-center justify-center ${isKeeper ? "bg-blue-500/30 border border-blue-400/50" : "bg-[#2C2C2E] border border-white/15"}`}>
                         <Text className="text-xs">🧤</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity disabled={!canUp} onPress={() => movePlayerInLineup(editingTeam, idx, "up")} className="w-9 h-8 rounded-xl items-center justify-center bg-white/50 dark:bg-white/[0.08]">
-                        <Text className={`font-bold text-base ${canUp ? "text-foreground" : "text-muted/30"}`}>▲</Text>
+                      <TouchableOpacity disabled={!canUp} onPress={() => movePlayerInLineup(editingTeam, idx, "up")} className={`w-8 h-8 rounded-xl items-center justify-center ${canUp ? "bg-[#2C2C2E] border border-white/15" : "bg-white/5 opacity-40"}`}>
+                        <Text className="font-bold text-xs text-white">▲</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity disabled={!canDown} onPress={() => movePlayerInLineup(editingTeam, idx, "down")} className="w-9 h-8 rounded-xl items-center justify-center bg-white/50 dark:bg-white/[0.08]">
-                        <Text className={`font-bold text-base ${canDown ? "text-foreground" : "text-muted/30"}`}>▼</Text>
+                      <TouchableOpacity disabled={!canDown} onPress={() => movePlayerInLineup(editingTeam, idx, "down")} className={`w-8 h-8 rounded-xl items-center justify-center ${canDown ? "bg-[#2C2C2E] border border-white/15" : "bg-white/5 opacity-40"}`}>
+                        <Text className="font-bold text-xs text-white">▼</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -556,56 +614,42 @@ export default function LiveMatchScreen() {
               })}
             </View>
 
-            <View className="bg-[#0066FF]/5 rounded-2xl p-3 border border-[#0066FF]/20 gap-1">
-              <Text className="text-xs text-muted">💡 Tap ✏️ to edit player names. Tap 👑 to assign captain. Tap 🧤 to assign wicketkeeper.</Text>
-              <Text className="text-xs text-muted">💡 Players at positions 1 & 2 are the opening batters.</Text>
+            <View className="bg-indigo-500/10 rounded-2xl p-3.5 border border-indigo-400/20 gap-1">
+              <Text className="text-xs text-indigo-300 font-semibold">💡 Tap ✏️ to edit player names. Tap 👑 to assign captain. Tap 🧤 to assign wicketkeeper.</Text>
+              <Text className="text-xs text-indigo-300 font-semibold">💡 Positions 1 & 2 are the opening batters for this innings.</Text>
             </View>
 
-            <TouchableOpacity className="bg-[#0066FF] rounded-2xl py-4 items-center mt-2" onPress={confirmLineups}>
-              <Text className="text-white font-bold text-lg">✅ Confirm & Proceed to Toss</Text>
+            <TouchableOpacity className="bg-gradient-to-r from-blue-500 to-indigo-600 border border-indigo-400 rounded-2xl py-4 items-center mt-2 shadow-lg shadow-indigo-500/50 active:scale-95" onPress={confirmLineups}>
+              <Text className="text-white font-black text-lg">✅ Confirm & Proceed to Toss</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       )}
 
-      {/* Rename Player Modal - outside ScrollView to avoid clipping */}
+      {/* Rename Player Modal */}
       {phase === "lineup" && editingPlayerIndex !== null && (
-        <View className="absolute inset-0 z-50 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+        <View className="absolute inset-0 z-50 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.7)" }}>
           <View
-            className="rounded-3xl p-6 gap-5"
-            style={{
-              backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 12 },
-              shadowOpacity: 0.25,
-              shadowRadius: 24,
-              elevation: 16,
-              ...(Platform.OS === "web" ? {
-                backdropFilter: "blur(32px) saturate(180%)",
-                WebkitBackdropFilter: "blur(32px) saturate(180%)",
-              } : {}),
-            }}
+            className="rounded-3xl p-6 gap-5 bg-[#1C1C1E] border border-white/20 shadow-2xl"
+            style={Platform.OS === "web" ? {
+              backdropFilter: "blur(32px) saturate(180%)",
+              WebkitBackdropFilter: "blur(32px) saturate(180%)",
+            } as any : {}}
           >
             <View className="gap-1">
-              <Text className="text-lg font-bold text-foreground tracking-tight">✏️ Rename Player</Text>
-              <Text className="text-xs text-muted">
+              <Text className="text-lg font-black text-white tracking-tight">✏️ Rename Player</Text>
+              <Text className="text-xs font-semibold text-slate-400">
                 {editingTeam === 1 ? team1 : team2} — Position {editingPlayerIndex !== null ? editingPlayerIndex + 1 : "—"}
               </Text>
             </View>
 
-            <View
-              className="rounded-2xl px-4 py-3 border"
-              style={{
-                backgroundColor: isDark ? "rgba(28,28,30,0.8)" : "rgba(242,242,247,0.8)",
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
-              }}
-            >
+            <View className="rounded-2xl px-4 py-3 border bg-[#2C2C2E] border-white/15">
               <TextInput
-                className="text-base font-semibold text-foreground"
+                className="text-base font-extrabold text-white"
                 value={editingPlayerName}
                 onChangeText={setEditingPlayerName}
                 placeholder="Enter player name"
-                placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.2)"}
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 autoFocus
                 maxLength={25}
                 selectTextOnFocus
@@ -614,15 +658,13 @@ export default function LiveMatchScreen() {
 
             <View className="flex-row gap-3">
               <TouchableOpacity
-                className="flex-1 py-3.5 rounded-2xl items-center border"
-                style={{ borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)" }}
+                className="flex-1 py-3.5 rounded-2xl items-center border border-white/20 bg-[#2C2C2E]"
                 onPress={() => setEditingPlayerIndex(null)}
               >
-                <Text className="text-sm font-semibold text-foreground">Cancel</Text>
+                <Text className="text-sm font-extrabold text-white">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="flex-1 py-3.5 rounded-2xl items-center"
-                style={{ backgroundColor: "#0066FF" }}
+                className="flex-1 py-3.5 rounded-2xl items-center bg-gradient-to-r from-blue-500 to-indigo-600 border border-indigo-400 shadow-md shadow-indigo-500/40"
                 onPress={() => {
                   const lineup = editingTeam === 1 ? team1Lineup : team2Lineup;
                   if (editingPlayerIndex !== null && editingPlayerIndex < lineup.length) {
@@ -630,7 +672,7 @@ export default function LiveMatchScreen() {
                   }
                 }}
               >
-                <Text className="text-sm font-bold text-white">Save</Text>
+                <Text className="text-sm font-black text-white">Save</Text>
               </TouchableOpacity>
             </View>
           </View>

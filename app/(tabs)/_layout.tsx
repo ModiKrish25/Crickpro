@@ -13,6 +13,8 @@ import {
   type TabDeviceType,
 } from "@/lib/const";
 
+import { FloatingChatbotWidget } from "@/components/ui/floating-chatbot-widget";
+
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useThemeContext();
@@ -52,38 +54,39 @@ export default function TabLayout() {
     paddingBottom: 0,
     paddingHorizontal: cfg.horizontalPadding,
     borderRadius: 32,
-    // Dark Emerald Frosted Glass background
+    // Dark Charcoal Frosted Glass background matching iOS 18
     backgroundColor: isDark
-      ? "rgba(15, 28, 22, 0.90)"
+      ? "rgba(28, 28, 30, 0.88)"
       : "rgba(255, 255, 255, 0.90)",
     borderWidth: 1,
     borderColor: isDark
-      ? "rgba(16, 185, 129, 0.25)"
+      ? "rgba(255, 255, 255, 0.14)"
       : "rgba(0, 0, 0, 0.08)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: isDark ? 0.45 : 0.15,
-    shadowRadius: 28,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: isDark ? 0.55 : 0.15,
+    shadowRadius: 32,
+    elevation: 20,
     ...(Platform.OS === "web" ? {
-      backdropFilter: "blur(24px) saturate(180%)",
-      WebkitBackdropFilter: "blur(24px) saturate(180%)",
+      backdropFilter: "blur(28px) saturate(190%)",
+      WebkitBackdropFilter: "blur(28px) saturate(190%)",
       ...webTabBarStyle,
     } : {}),
   };
 
   return (
-    <Tabs
+    <View style={{ flex: 1 }}>
+      <Tabs
       detachInactiveScreens={false}
       screenOptions={{
-        tabBarActiveTintColor: "#10B981",
-        tabBarInactiveTintColor: isDark ? "rgba(156, 163, 175, 0.7)" : "rgba(107, 114, 128, 0.7)",
+        tabBarActiveTintColor: "#FF9F0A",
+        tabBarInactiveTintColor: isDark ? "rgba(235, 235, 245, 0.6)" : "rgba(60, 60, 67, 0.6)",
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarHideOnKeyboard: true,
         tabBarStyle: tabBarStyle as any,
         tabBarItemStyle: {
-          paddingVertical: showInlineLabel ? 4 : 6,
+          paddingVertical: showInlineLabel ? 4 : 4,
           height: tabBarHeight - bottomPadding,
           flexDirection: showInlineLabel ? "row" : "column",
           alignItems: "center",
@@ -92,7 +95,7 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: "700",
+          fontWeight: "800",
           letterSpacing: -0.2,
           marginTop: 2,
         },
@@ -107,8 +110,8 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center ${focused ? "scale-105" : "opacity-75"}`}>
-              <IconSymbol size={22} name="house.fill" color={focused ? "#10B981" : color} />
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="house.fill" color={focused ? "#FFFFFF" : color} />
             </View>
           ),
         }}
@@ -119,31 +122,43 @@ export default function TabLayout() {
         options={{
           title: "Matches",
           tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center ${focused ? "scale-105" : "opacity-75"}`}>
-              <IconSymbol size={22} name="trophy.fill" color={focused ? "#10B981" : color} />
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="trophy.fill" color={focused ? "#FFFFFF" : color} />
             </View>
           ),
         }}
       />
 
-      {/* Visually Prominent Center + Score Action */}
+      {/* Center Score Button Action */}
       <Tabs.Screen
         name="scorecard"
         options={{
           title: "+ Score",
           tabBarIcon: ({ color, focused }) => (
             <View className="items-center justify-center -mt-5">
-              <View className="w-12 h-12 rounded-full bg-[#10B981] items-center justify-center shadow-lg shadow-[#10B981]/40 border-2 border-[#08120E] active:scale-95 transition-transform">
-                <Text className="text-white text-xl font-extrabold" style={{ lineHeight: 22 }}>+</Text>
+              <View className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 items-center justify-center shadow-lg shadow-indigo-500/60 border-2 border-[#0B0E17] active:scale-95 transition-transform">
+                <Text className="text-white text-xl font-black" style={{ lineHeight: 22 }}>+</Text>
               </View>
             </View>
           ),
           tabBarLabelStyle: {
             fontSize: 10,
-            fontWeight: "800",
-            color: "#10B981",
+            fontWeight: "900",
+            color: "#6366F1",
             marginTop: 4,
           },
+        }}
+      />
+
+      <Tabs.Screen
+        name="community"
+        options={{
+          title: "Community",
+          tabBarIcon: ({ color, focused }) => (
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="people.fill" color={focused ? "#FFFFFF" : color} />
+            </View>
+          ),
         }}
       />
 
@@ -152,8 +167,8 @@ export default function TabLayout() {
         options={{
           title: "Stats",
           tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center ${focused ? "scale-105" : "opacity-75"}`}>
-              <IconSymbol size={22} name="chart.bar.fill" color={focused ? "#10B981" : color} />
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="chart.bar.fill" color={focused ? "#FFFFFF" : color} />
             </View>
           ),
         }}
@@ -164,12 +179,15 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center ${focused ? "scale-105" : "opacity-75"}`}>
-              <IconSymbol size={22} name="person.fill" color={focused ? "#10B981" : color} />
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="person.fill" color={focused ? "#FFFFFF" : color} />
             </View>
           ),
         }}
       />
     </Tabs>
+
+    <FloatingChatbotWidget />
+    </View>
   );
 }

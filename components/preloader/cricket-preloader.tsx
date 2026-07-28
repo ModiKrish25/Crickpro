@@ -1,10 +1,8 @@
 /**
- * CricketPreloader — Premium cinematic splash screen.
+ * CricketPreloader — Ultra-Premium Cinematic Preloader & Splash Screen.
  *
- * Web: Uses a native <div> with CSS transitions (100% reliable fade/callback).
- * Native: Uses React Native View/Text with simple opacity state.
- *
- * onExitComplete is GUARANTEED via direct setTimeout — no Animated callback needed.
+ * Web: Uses native HTML/CSS with keyframe animations (100% smooth 60fps transitions).
+ * Native: Uses React Native StyleSheet with glowing ambient layers & ball badges.
  */
 import { View, Text, StyleSheet, Dimensions, Platform } from "react-native";
 import { useEffect, useRef, useState } from "react";
@@ -30,6 +28,7 @@ const MESSAGES = [
   "Initializing match engine...",
   "Syncing live scorecards...",
   "Loading player statistics...",
+  "Preparing pitch & fielders...",
   "Ready to Play!",
 ];
 
@@ -37,7 +36,7 @@ export function CricketPreloader({
   state,
   onExitComplete,
   appName = "CRICKPRO",
-  tagline = "Every Ball. Every Moment.",
+  tagline = "EVERY BALL • EVERY MOMENT",
 }: CricketPreloaderProps) {
   const insets = useSafeAreaInsets();
   const [fading, setFading] = useState(false);
@@ -52,7 +51,7 @@ export function CricketPreloader({
         calledRef.current = true;
         onExitComplete?.();
       }
-    }, 380);
+    }, 400);
     return () => clearTimeout(timer);
   }, [state.phase, onExitComplete]);
 
@@ -64,50 +63,88 @@ export function CricketPreloader({
   const progressPct = Math.round(state.loadingProgress * 100);
 
   if (Platform.OS === "web") {
-    return <WebPreloader fading={fading} insets={insets} appName={appName} tagline={tagline} completedBalls={completedBalls} currentMsg={currentMsg} progressPct={progressPct} phase={state.phase} />;
+    return (
+      <WebPreloader
+        fading={fading}
+        insets={insets}
+        appName={appName}
+        tagline={tagline}
+        completedBalls={completedBalls}
+        currentMsg={currentMsg}
+        progressPct={progressPct}
+        phase={state.phase}
+      />
+    );
   }
 
   return (
-    <View style={[styles.container, { opacity: fading ? 0 : 1, paddingTop: insets.top, paddingBottom: insets.bottom + 20 }]}>
-      <View style={styles.glowCircle} />
+    <View style={[styles.container, { opacity: fading ? 0 : 1, paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
+      {/* Ambient Radial Spotlight Glows */}
+      <View style={styles.blueSpotlight} />
+      <View style={styles.greenSpotlight} />
+
       <View style={styles.content}>
+        {/* Animated Cricket Ball Logo */}
         <View style={styles.logoWrapper}>
-          <View style={styles.pulseRing} />
+          <View style={styles.outerGlowRing} />
+          <View style={styles.innerPulseRing} />
           <View style={styles.cricketBall}>
-            <View style={[styles.seam, { transform: [{ rotate: "35deg" }] }]} />
-            <View style={[styles.seam, { transform: [{ rotate: "-35deg" }] }]} />
+            <View style={[styles.seam, { transform: [{ rotate: "40deg" }] }]} />
+            <View style={[styles.seam, { transform: [{ rotate: "-40deg" }] }]} />
             <View style={styles.seamCenter} />
           </View>
         </View>
+
+        {/* Brand Container */}
         <View style={styles.brandContainer}>
           <Text style={styles.brandTitle}>{appName}</Text>
-          <Text style={styles.brandTagline}>{tagline}</Text>
+          <View style={styles.taglineBadge}>
+            <Text style={styles.brandTagline}>{tagline}</Text>
+          </View>
         </View>
-        <View style={styles.loaderContainer}>
-          <View style={styles.ballsRow}>
-            {[1, 2, 3, 4, 5, 6].map((b) => {
-              const active = b <= completedBalls;
-              return (
-                <View key={b} style={[styles.ballDot, active ? styles.ballDotActive : styles.ballDotInactive]}>
-                  <Text style={[styles.ballText, active && styles.ballTextActive]}>{b}</Text>
-                </View>
-              );
-            })}
+
+        {/* Over Progress Balls */}
+        <View style={styles.ballsRow}>
+          {[1, 2, 3, 4, 5, 6].map((b) => {
+            const active = b <= completedBalls;
+            return (
+              <View key={b} style={[styles.ballDot, active ? styles.ballDotActive : styles.ballDotInactive]}>
+                <Text style={[styles.ballText, active && styles.ballTextActive]}>
+                  {active ? "✓" : b}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Progress Bar & Percentage */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.loadingMessage}>{currentMsg}</Text>
+            <Text style={styles.progressPctText}>{progressPct}%</Text>
           </View>
           <View style={styles.progressBarBg}>
             <View style={[styles.progressBarFill, { width: `${progressPct}%` as any }]} />
           </View>
-          <Text style={styles.loadingMessage}>{currentMsg}</Text>
         </View>
       </View>
-      <Text style={styles.footerText}>CRICKPRO v1.0 • LIVE SCORING ENGINE</Text>
+
+      {/* Footer */}
+      <Text style={styles.footerText}>CRICKPRO ENGINE • PROFESSIONAL SCORING PLATFORM</Text>
     </View>
   );
 }
 
-// ─── Web Preloader ────────────────────────────────────────────────────────────
+// ─── Web Cinematic Preloader (Matches Left Phone Onboarding Screen) ────────────
 function WebPreloader({
-  fading, insets, appName, tagline, completedBalls, currentMsg, progressPct, phase,
+  fading,
+  insets,
+  appName,
+  tagline,
+  completedBalls,
+  currentMsg,
+  progressPct,
+  phase,
 }: {
   fading: boolean;
   insets: { top: number; bottom: number };
@@ -124,114 +161,136 @@ function WebPreloader({
         position: "fixed" as const,
         inset: 0,
         zIndex: 99999,
-        backgroundColor: "#050806",
+        backgroundColor: "#0B0E17",
         display: "flex",
         flexDirection: "column" as const,
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "space-between",
         opacity: fading ? 0 : 1,
-        transition: "opacity 350ms ease-out",
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom + 20,
+        transition: "opacity 400ms cubic-bezier(0.16, 1, 0.3, 1)",
+        paddingTop: insets.top + 24,
+        paddingBottom: insets.bottom + 32,
+        paddingLeft: 24,
+        paddingRight: 24,
         pointerEvents: phase === "exit" ? ("none" as const) : ("auto" as const),
       }}
     >
-      {/* Background glow */}
-      <div style={{
-        position: "absolute" as const, inset: 0,
-        background: "radial-gradient(ellipse at 50% 30%, rgba(0,102,255,0.09) 0%, transparent 70%)",
-        pointerEvents: "none" as const,
-      }} />
-      <div style={{
-        position: "absolute" as const, width: 480, height: 480, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(52,199,89,0.06) 0%, transparent 70%)",
-        pointerEvents: "none" as const,
-      }} />
+      {/* Top Header: Skip Pill Button */}
+      <div style={{ width: "100%", maxWidth: 440, display: "flex", justifyContent: "flex-end", zIndex: 10 }}>
+        <button
+          onClick={() => {}}
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.12)",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            color: "#FFFFFF",
+            borderRadius: 20,
+            padding: "6px 20px",
+            fontSize: 13,
+            fontWeight: "700",
+            cursor: "pointer",
+            backdropFilter: "blur(12px)",
+          }}
+        >
+          Skip
+        </button>
+      </div>
 
-      {/* Main content card */}
-      <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", animation: "cp-rise 0.5s ease-out both" }}>
-        {/* Cricket ball */}
-        <div style={{ position: "relative" as const, width: 100, height: 100, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
-          <div style={{
-            position: "absolute" as const, width: 96, height: 96, borderRadius: "50%",
-            border: "2px solid rgba(52,199,89,0.35)", background: "rgba(52,199,89,0.08)",
-            animation: "cp-pulse 1.8s ease-in-out infinite",
-          }} />
-          <div style={{
-            width: 72, height: 72, borderRadius: "50%",
-            background: "radial-gradient(circle at 35% 35%, #ef5350 0%, #b71c1c 100%)",
-            boxShadow: "0 6px 28px rgba(255,77,77,0.55), inset 0 2px 6px rgba(255,255,255,0.18)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            position: "relative" as const, overflow: "hidden" as const,
-          }}>
-            <div style={{ position: "absolute" as const, width: "100%", height: 2, background: "rgba(255,255,255,0.6)", transform: "rotate(35deg)" }} />
-            <div style={{ position: "absolute" as const, width: "100%", height: 2, background: "rgba(255,255,255,0.6)", transform: "rotate(-35deg)" }} />
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "rgba(255,255,255,0.75)" }} />
+      {/* Center Artwork & Content Container */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column" as const,
+          alignItems: "center",
+          width: "100%",
+          maxWidth: 440,
+          textAlign: "left" as const,
+          gap: 20,
+        }}
+      >
+        {/* Animated Cricket Ball Logo Emblem */}
+        <div style={{ position: "relative" as const, width: 110, height: 110, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
+          <div
+            style={{
+              position: "absolute" as const,
+              width: 104,
+              height: 104,
+              borderRadius: "50%",
+              boxShadow: "0 0 40px rgba(99, 102, 241, 0.5)",
+              border: "1px solid rgba(99, 102, 241, 0.4)",
+            }}
+          />
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 8px 24px rgba(79, 70, 229, 0.6)",
+              color: "#FFFFFF",
+              fontSize: 32,
+              fontWeight: "900",
+            }}
+          >
+            🏏
           </div>
         </div>
 
-        {/* Brand */}
-        <div style={{ textAlign: "center" as const, marginBottom: 36 }}>
-          <div style={{ fontSize: 38, fontWeight: 800, color: "#fff", letterSpacing: 5, fontFamily: "'Inter', system-ui, sans-serif" }}>
-            {appName}
+        {/* Onboarding Titles */}
+        <div style={{ width: "100%", display: "flex", flexDirection: "column" as const, gap: 8 }}>
+          <div style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: 18, fontWeight: "600" }}>Your Ultimate</div>
+          <div style={{ color: "#FFFFFF", fontSize: 28, fontWeight: "900", letterSpacing: "-0.5px" }}>Cricket Score Hub</div>
+          <div style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 13, fontWeight: "500", lineHeight: "1.5", marginTop: 4 }}>
+            Stay updated with live scores, match stats, and highlights. Your ultimate cricket hub for real-time global updates. 🏏
           </div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: "#34C759", letterSpacing: 1.8, marginTop: 8, fontFamily: "'Inter', system-ui, sans-serif" }}>
-            {tagline}
-          </div>
-        </div>
-
-        {/* 6-Ball Over Loader */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 20, justifyContent: "center" }}>
-          {[1, 2, 3, 4, 5, 6].map((b) => {
-            const active = b <= completedBalls;
-            return (
-              <div key={b} style={{
-                width: 36, height: 36, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: active ? "1.5px solid #34C759" : "1.5px solid rgba(255,255,255,0.15)",
-                background: active ? "#34C759" : "rgba(255,255,255,0.04)",
-                boxShadow: active ? "0 2px 10px rgba(52,199,89,0.55)" : "none",
-                transition: "all 0.25s ease",
-              }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: active ? "#000" : "rgba(255,255,255,0.35)", fontFamily: "system-ui, sans-serif" }}>
-                  {b}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Progress bar */}
-        <div style={{ width: 300, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.1)", overflow: "hidden" as const, marginBottom: 16 }}>
-          <div style={{
-            height: "100%", borderRadius: 2,
-            background: "linear-gradient(90deg, #0066FF, #34C759)",
-            width: `${progressPct}%`,
-            transition: "width 0.12s linear",
-          }} />
-        </div>
-
-        {/* Status message */}
-        <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.65)", textAlign: "center" as const, letterSpacing: 0.5, fontFamily: "'Inter', system-ui, sans-serif" }}>
-          {currentMsg}
         </div>
       </div>
 
-      {/* Footer */}
-      <div style={{ position: "absolute" as const, bottom: 28, fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.22)", letterSpacing: 2, fontFamily: "system-ui, sans-serif" }}>
-        CRICKPRO v1.0 • LIVE SCORING ENGINE
-      </div>
+      {/* Bottom Swipe Control Pill Bar */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 380,
+          backgroundColor: "rgba(255, 255, 255, 0.06)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          borderRadius: 36,
+          padding: 6,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255, 255, 255, 0.5)", fontSize: 16, fontWeight: "700" }}>
+          &lt;
+        </div>
 
-      <style>{`
-        @keyframes cp-pulse {
-          0%, 100% { transform: scale(1); opacity: 0.55; }
-          50% { transform: scale(1.2); opacity: 1; }
-        }
-        @keyframes cp-rise {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+        {/* Central Active Check Button Orb */}
+        <div
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #6366F1 0%, #3B82F6 100%)",
+            boxShadow: "0 0 20px rgba(99, 102, 241, 0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#FFFFFF",
+            fontSize: 20,
+            fontWeight: "900",
+          }}
+        >
+          ✓
+        </div>
+
+        <div style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255, 255, 255, 0.5)", fontSize: 16, fontWeight: "700" }}>
+          &gt;&gt;&gt;
+        </div>
+      </div>
     </div>
   );
 }
@@ -242,42 +301,189 @@ const { width } = Dimensions.get("window");
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#050806",
+    backgroundColor: "#070A10",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 99999,
   },
-  glowCircle: {
-    position: "absolute", width: Math.min(width * 0.9, 420), height: Math.min(width * 0.9, 420),
-    borderRadius: 210, backgroundColor: "rgba(52, 199, 89, 0.05)",
+  blueSpotlight: {
+    position: "absolute",
+    width: Math.min(width * 0.9, 440),
+    height: Math.min(width * 0.9, 440),
+    borderRadius: 220,
+    backgroundColor: "rgba(0, 102, 255, 0.07)",
+    top: "15%",
   },
-  content: { alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
-  logoWrapper: { width: 100, height: 100, alignItems: "center", justifyContent: "center", marginBottom: 24 },
-  pulseRing: {
-    position: "absolute", width: 96, height: 96, borderRadius: 48,
-    borderWidth: 2, borderColor: "rgba(52,199,89,0.35)", backgroundColor: "rgba(52,199,89,0.08)",
+  greenSpotlight: {
+    position: "absolute",
+    width: Math.min(width * 0.8, 380),
+    height: Math.min(width * 0.8, 380),
+    borderRadius: 190,
+    backgroundColor: "rgba(16, 185, 129, 0.06)",
+    bottom: "20%",
+  },
+  content: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    width: Math.min(width - 48, 400),
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderRadius: 32,
+    paddingVertical: 40,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  logoWrapper: {
+    width: 100,
+    height: 100,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  outerGlowRing: {
+    position: "absolute",
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 2,
+    borderColor: "rgba(16, 185, 129, 0.35)",
+    backgroundColor: "rgba(16, 185, 129, 0.06)",
+  },
+  innerPulseRing: {
+    position: "absolute",
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: "rgba(0, 102, 255, 0.1)",
   },
   cricketBall: {
-    width: 72, height: 72, borderRadius: 36, backgroundColor: "#D32F2F",
-    alignItems: "center", justifyContent: "center",
-    shadowColor: "#FF4D4D", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 12,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: "#DC2626",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#EF4444",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 12,
   },
-  seam: { position: "absolute", width: "100%", height: 2, backgroundColor: "rgba(255,255,255,0.65)" },
-  seamCenter: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#FFFFFF", opacity: 0.7 },
-  brandContainer: { alignItems: "center", marginBottom: 32 },
-  brandTitle: { fontSize: 34, fontWeight: "800", color: "#FFFFFF", letterSpacing: 3, marginBottom: 6, textAlign: "center" },
-  brandTagline: { fontSize: 14, fontWeight: "500", color: "#34C759", letterSpacing: 1.2, textAlign: "center" },
-  loaderContainer: { alignItems: "center", width: Math.min(width - 64, 320) },
-  ballsRow: { flexDirection: "row", gap: 8, marginBottom: 16, justifyContent: "center" },
-  ballDot: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", borderWidth: 1.5 },
-  ballDotInactive: { backgroundColor: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.15)" },
-  ballDotActive: { backgroundColor: "#34C759", borderColor: "#34C759", shadowColor: "#34C759", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.6, shadowRadius: 6, elevation: 6 },
-  ballText: { fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.4)" },
-  ballTextActive: { color: "#000000" },
-  progressBarBg: { width: "100%", height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden", marginBottom: 14 },
-  progressBarFill: { height: "100%", backgroundColor: "#0066FF", borderRadius: 2 },
-  loadingMessage: { fontSize: 13, fontWeight: "600", color: "rgba(255,255,255,0.7)", textAlign: "center", letterSpacing: 0.5 },
-  footerText: { position: "absolute", bottom: 24, fontSize: 10, fontWeight: "600", color: "rgba(255,255,255,0.25)", letterSpacing: 1.5, textAlign: "center" },
+  seam: {
+    position: "absolute",
+    width: "100%",
+    height: 2.5,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+  },
+  seamCenter: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FFFFFF",
+  },
+  brandContainer: {
+    alignItems: "center",
+    marginBottom: 28,
+  },
+  brandTitle: {
+    fontSize: 34,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 5,
+    textAlign: "center",
+  },
+  taglineBadge: {
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.3)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginTop: 8,
+  },
+  brandTagline: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#10B981",
+    letterSpacing: 1.8,
+    textAlign: "center",
+  },
+  ballsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 24,
+    justifyContent: "center",
+  },
+  ballDot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+  },
+  ballDotInactive: {
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
+  },
+  ballDotActive: {
+    backgroundColor: "#10B981",
+    borderColor: "#10B981",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  ballText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "rgba(255, 255, 255, 0.35)",
+  },
+  ballTextActive: {
+    color: "#FFFFFF",
+  },
+  progressContainer: {
+    width: "100%",
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  loadingMessage: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.75)",
+    letterSpacing: 0.3,
+  },
+  progressPctText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#10B981",
+  },
+  progressBarBg: {
+    width: "100%",
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#10B981",
+    borderRadius: 3,
+  },
+  footerText: {
+    position: "absolute",
+    bottom: 24,
+    fontSize: 10,
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.25)",
+    letterSpacing: 1.8,
+    textAlign: "center",
+  },
 });
 
 export default CricketPreloader;

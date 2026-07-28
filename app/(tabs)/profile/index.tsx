@@ -1,10 +1,13 @@
 /**
- * Profile Screen - Premium user profile with enhanced glass effects
+ * Profile Screen - Premium User & Manager Profile (CrickPro MLS UI)
  * 
- * Design: Apple-style settings with glass cards, premium avatar
- * All elements use frosted glass with backdrop blur
+ * Design Architecture:
+ * - High-Impact Player Passport Banner with metallic badge & level ring
+ * - Career Highlights Summary Cards (Matches, Runs, Wickets, Best Score)
+ * - Organized Settings & Management Sections with Glass Cards
+ * - Guest Login View with instant sign-in trigger
  */
-import { ScrollView, Text, View, Platform, ActivityIndicator } from "react-native";
+import { ScrollView, Text, View, Platform, ActivityIndicator, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useRouter } from "expo-router";
@@ -20,9 +23,17 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleAction = async (cb: () => void) => {
+  const handleNavigate = async (screen: string) => {
     if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    cb();
+    switch (screen) {
+      case "editProfile": router.push("/(tabs)/profile/edit" as any); break;
+      case "theme": router.push("/(tabs)/profile/theme" as any); break;
+      case "stats": router.push("/(tabs)/stats" as any); break;
+      case "leagues": router.push("/(tabs)/leagues" as any); break;
+      case "h2h": router.push("/head-to-head" as any); break;
+      case "aichat": router.push("/ai-chat" as any); break;
+      default: alert(`${screen} feature coming in next update!`);
+    }
   };
 
   const handleSignOut = async () => {
@@ -31,199 +42,196 @@ export default function ProfileScreen() {
     try { await logout(); } finally { setIsLoggingOut(false); }
   };
 
-  const handleNavigate = async (screen: string) => {
-    await handleAction(() => {
-      switch (screen) {
-        case "editProfile": router.push("/(tabs)/profile/edit"); break;
-        case "theme": router.push("/(tabs)/profile/theme"); break;
-        default: alert("Coming soon! This feature is under development.");
-      }
-    });
-  };
-
   if (loading) {
     return (
       <ScreenContainer className="px-4" gradient glass>
         <View className="flex-1 items-center justify-center gap-4">
-          <ActivityIndicator size="large" color="#0066FF" />
-          <Text className="text-sm text-muted">Loading profile...</Text>
+          <ActivityIndicator size="large" color="#10B981" />
+          <Text className="text-sm font-bold text-slate-400">Loading CrickPro profile...</Text>
         </View>
       </ScreenContainer>
     );
   }
 
-  // Not Authenticated
+  // Guest / Unauthenticated Screen
   if (!isAuthenticated) {
     return (
-      <ScreenContainer className="px-4 pt-2" gradient glass>
-        <ScrollView style={{ flex: 1, width: "100%", height: "100%" }} contentContainerStyle={{ flexGrow: 1, minHeight: "100%", paddingBottom }} showsVerticalScrollIndicator={false}>
-          <View className="flex-1 gap-6 justify-center pt-10">
-            <GlassCard intensity="high" glowColor="#0066FF" padding="xl" radius="xl" className="items-center gap-4 py-8" blurAmount={30} staggerIndex={0}>
-              <LiquidGlassOverlay color="#0066FF" variant="sheen" speed={0.8} intensity={0.6} />
-              <View className="w-24 h-24 rounded-full bg-[#0066FF]/10 items-center justify-center mb-1">
+      <ScreenContainer gradient>
+        <ScrollView style={{ flex: 1, width: "100%" }} contentContainerStyle={{ flexGrow: 1, paddingBottom: paddingBottom + 24 }} showsVerticalScrollIndicator={false}>
+          <View className="flex-1 gap-6 justify-center pt-8">
+            <GlassCard intensity="heavy" radius="xl" padding="xl" className="items-center gap-4 py-10 bg-[#0F1420] border-emerald-500/30">
+              <View className="w-24 h-24 rounded-full bg-emerald-500/10 border-2 border-emerald-500/40 items-center justify-center mb-1 shadow-lg shadow-emerald-500/20">
                 <Text className="text-4xl">🏏</Text>
               </View>
-              <Text className="text-3xl font-bold text-foreground tracking-tight">CrickPro</Text>
-              <Text className="text-sm text-muted text-center max-w-[240px] leading-5">
-                Cricket Scoring & Tournament Management
-              </Text>
-            </GlassCard>
-
-            <GlassCard intensity="medium" padding="xl" radius="xl" className="gap-4" blurAmount={20} staggerIndex={1}>
-              <LiquidGlassOverlay variant="sheen" speed={0.6} intensity={0.3} />
-              <Text className="text-lg font-bold text-foreground text-center">Welcome to CrickPro!</Text>
-              <Text className="text-sm text-muted text-center leading-5">
-                Sign in to start scoring matches, track your career statistics, manage teams, and participate in tournaments.
-              </Text>
-
-              <View className="flex-row gap-3 mt-2">
-                {[
-                  { icon: "🏏", label: "Live Scoring" },
-                  { icon: "📊", label: "Career Stats" },
-                  { icon: "🏆", label: "Leagues" },
-                ].map(({ icon, label }) => (
-                  <GlassCard key={label} intensity="subtle" padding="sm" radius="lg" className="flex-1 items-center gap-1" highlight={false} glowAccents={false} depth={false}>
-                    <Text className="text-xl">{icon}</Text>
-                    <Text className="text-[10px] text-muted text-center">{label}</Text>
-                  </GlassCard>
-                ))}
+              <View className="items-center gap-1">
+                <Text className="text-3xl font-black text-white tracking-tight">CRICKPRO</Text>
+                <Text className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider">Scoring & Tournament Platform</Text>
               </View>
+              <Text className="text-sm font-semibold text-slate-300 text-center max-w-[280px] leading-5">
+                Sign in to manage team rosters, track career stats, host leagues, and sync match data.
+              </Text>
             </GlassCard>
 
-            <GlassCard
-              intensity="high"
-              glowColor="#0066FF"
-              padding="xl"
-              radius="xl"
-              gradientBorder
-              className="items-center flex-row justify-center gap-3"
+            <TouchableOpacity
               onPress={async () => {
                 if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 await login();
               }}
-              blurAmount={24}
-              staggerIndex={2}
+              className="bg-emerald-500 hover:bg-emerald-400 py-4 rounded-2xl items-center flex-row justify-center gap-3 shadow-xl shadow-emerald-500/30 active:scale-95"
             >
               <Text className="text-xl">🔐</Text>
-              <Text className="text-foreground font-bold text-lg">Sign In / Sign Up</Text>
-            </GlassCard>
+              <Text className="text-black font-black text-lg">Sign In / Register</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </ScreenContainer>
     );
   }
 
-  // Authenticated
+  // Authenticated Player Profile
   const initials = user?.name
     ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
-    : "U";
+    : "CP";
 
   return (
-    <ScreenContainer className="px-4 pt-2" gradient glass>
-      <ScrollView style={{ flex: 1, width: "100%", height: "100%" }} contentContainerStyle={{ flexGrow: 1, minHeight: "100%", paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        <View className="flex-1 gap-5">
-          <View className="pt-2 pb-1">
-            <Text className="text-[34px] font-bold text-foreground tracking-tight">Profile</Text>
-            <Text className="text-base text-muted mt-1">Manage your account and preferences</Text>
+    <ScreenContainer gradient>
+      <ScrollView
+        style={{ flex: 1, width: "100%" }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: paddingBottom + 24 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="flex-1 gap-5 pt-2">
+          
+          {/* HEADER */}
+          <View className="flex-row items-center justify-between px-1">
+            <View className="gap-0.5">
+              <Text className="text-3xl font-black text-white tracking-tight">Profile Hub</Text>
+              <Text className="text-xs font-semibold text-slate-400">Player Passport & Account Settings</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => handleNavigate("editProfile")}
+              className="bg-white/10 border border-white/15 rounded-xl px-3 py-1.5 active:opacity-80"
+            >
+              <Text className="text-white text-xs font-bold">Edit ✏️</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* User Info Card - Enhanced glass */}
-          <GlassCard intensity="high" glowColor="#0066FF" padding="lg" radius="xl" gradientBorder blurAmount={30} onPress={() => handleNavigate("editProfile")} staggerIndex={0}>
-            <LiquidGlassOverlay color="#0066FF" variant="sheen" speed={0.5} intensity={0.4} />
+          {/* PLAYER PASSPORT BANNER */}
+          <GlassCard
+            intensity="heavy"
+            radius="xl"
+            padding="lg"
+            className="bg-[#121622] border-emerald-500/30 gap-4"
+          >
             <View className="flex-row items-center gap-4">
-              <View className="w-16 h-16 rounded-full bg-[#0066FF] items-center justify-center">
-                <Text className="text-xl font-bold text-white">{initials}</Text>
+              {/* Avatar Ring */}
+              <View className="w-16 h-16 rounded-full bg-emerald-500 border-2 border-white items-center justify-center shadow-lg shadow-emerald-500/40">
+                <Text className="text-2xl font-black text-black">{initials}</Text>
               </View>
               <View className="flex-1 gap-0.5">
-                <Text className="text-xl font-bold text-foreground">{user?.name || "Cricket Player"}</Text>
-                <Text className="text-sm text-muted">{user?.email || "No email set"}</Text>
-                {user?.loginMethod && (
-                  <View className="flex-row items-center gap-1.5 mt-0.5">
-                    <View className="bg-[#0066FF]/15 rounded-full px-2 py-0.5">
-                      <Text className="text-[10px] font-semibold text-[#0066FF] capitalize">{user.loginMethod}</Text>
-                    </View>
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-xl font-black text-white">{user?.name || "Cricket Pro Player"}</Text>
+                  <View className="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-full">
+                    <Text className="text-[10px] font-black text-emerald-400">PRO LEVEL 5</Text>
                   </View>
-                )}
+                </View>
+                <Text className="text-xs font-semibold text-slate-400">{user?.email || "cricketer@crickpro.com"}</Text>
               </View>
-              <Text className="text-muted text-lg">›</Text>
+            </View>
+
+            {/* Quick Stats Grid inside Passport */}
+            <View className="flex-row items-center justify-between bg-black/50 p-3 rounded-xl border border-white/10 pt-2">
+              <View className="items-center">
+                <Text className="text-[9px] font-extrabold text-slate-400">MATCHES</Text>
+                <Text className="text-lg font-black text-white">14</Text>
+              </View>
+              <View className="w-px h-6 bg-white/10" />
+              <View className="items-center">
+                <Text className="text-[9px] font-extrabold text-slate-400">RUNS</Text>
+                <Text className="text-lg font-black text-emerald-400">640</Text>
+              </View>
+              <View className="w-px h-6 bg-white/10" />
+              <View className="items-center">
+                <Text className="text-[9px] font-extrabold text-slate-400">WICKETS</Text>
+                <Text className="text-lg font-black text-amber-400">34</Text>
+              </View>
+              <View className="w-px h-6 bg-white/10" />
+              <View className="items-center">
+                <Text className="text-[9px] font-extrabold text-slate-400">HIGH SCORE</Text>
+                <Text className="text-lg font-black text-purple-400">98*</Text>
+              </View>
             </View>
           </GlassCard>
 
-          {/* Account Section */}
-          <View className="gap-1">
-            <Text className="text-xs font-bold text-muted uppercase tracking-wider px-1 mb-1">Account</Text>
-            
+          {/* CRICKET MANAGEMENT SECTION */}
+          <View className="gap-2">
+            <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-wider px-1">Cricket Management</Text>
             {[
-              { icon: "👤", label: "Edit Profile", desc: "Name, photo, cricket role", screen: "editProfile" },
-              { icon: "🏏", label: "My Teams", desc: "Teams you manage or play for", screen: "myTeams" },
-              { icon: "📊", label: "My Statistics", desc: "Career batting & bowling stats", screen: "myStats" },
-            ].map(({ icon, label, desc, screen }, idx) => (
+              { icon: "🤖", title: "CrickAI Coach Assistant", desc: "Ask rules, DLS calculations & tactical advice", screen: "aichat" },
+              { icon: "👤", title: "Edit Player Profile", desc: "Update batting stance, bowling style & jersey", screen: "editProfile" },
+              { icon: "⚔️", title: "Player Head to Head", desc: "Compare stats against rival batters & bowlers", screen: "h2h" },
+              { icon: "🏆", title: "My Tournaments", desc: "Leagues you participate in or organize", screen: "leagues" },
+              { icon: "📊", title: "Career Statistics", desc: "Deep dive into your batting & bowling charts", screen: "stats" },
+            ].map((item) => (
               <GlassCard
-                key={label}
-                intensity="high"
+                key={item.title}
+                intensity="heavy"
                 padding="md"
                 radius="xl"
-                className="flex-row items-center gap-3"
-                onPress={() => handleNavigate(screen)}
-                blurAmount={20}
-                staggerIndex={1 + idx}
+                className="flex-row items-center gap-3.5 bg-[#121622]/90 border-white/10"
+                onPress={() => handleNavigate(item.screen)}
               >
-                <View className="w-10 h-10 rounded-full bg-white/50 dark:bg-white/[0.08] items-center justify-center">
-                  <Text className="text-lg">{icon}</Text>
+                <View className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/10">
+                  <Text className="text-lg">{item.icon}</Text>
                 </View>
                 <View className="flex-1">
-                  <Text className="text-foreground font-semibold">{label}</Text>
-                  <Text className="text-xs text-muted">{desc}</Text>
+                  <Text className="text-sm font-extrabold text-white">{item.title}</Text>
+                  <Text className="text-xs font-semibold text-slate-400">{item.desc}</Text>
                 </View>
-                <Text className="text-muted text-lg">›</Text>
+                <Text className="text-slate-400 font-extrabold">›</Text>
               </GlassCard>
             ))}
           </View>
 
-          {/* Settings Section */}
-          <View className="gap-1">
-            <Text className="text-xs font-bold text-muted uppercase tracking-wider px-1 mb-1">Settings</Text>
-            
+          {/* APP PREFERENCES SECTION */}
+          <View className="gap-2">
+            <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-wider px-1">App Preferences</Text>
             {[
-              { icon: "🔔", label: "Notifications", desc: "Match alerts, tournament updates", screen: "notifications" },
-              { icon: "🎨", label: "Theme & Display", desc: "Light/dark mode, font size", screen: "theme" },
-              { icon: "❓", label: "Help & Support", desc: "FAQ, contact us", screen: "help" },
-            ].map(({ icon, label, desc, screen }, idx) => (
+              { icon: "🎨", title: "Theme & Display", desc: "Switch theme & accent colors", screen: "theme" },
+              { icon: "🔔", title: "Match Alerts & Sounds", desc: "Configure scoring haptics & notifications", screen: "notifications" },
+            ].map((item) => (
               <GlassCard
-                key={label}
-                intensity="high"
+                key={item.title}
+                intensity="heavy"
                 padding="md"
                 radius="xl"
-                className="flex-row items-center gap-3"
-                onPress={() => handleNavigate(screen)}
-                blurAmount={20}
-                staggerIndex={4 + idx}
+                className="flex-row items-center gap-3.5 bg-[#121622]/90 border-white/10"
+                onPress={() => handleNavigate(item.screen)}
               >
-                <View className="w-10 h-10 rounded-full bg-white/50 dark:bg-white/[0.08] items-center justify-center">
-                  <Text className="text-lg">{icon}</Text>
+                <View className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/10">
+                  <Text className="text-lg">{item.icon}</Text>
                 </View>
                 <View className="flex-1">
-                  <Text className="text-foreground font-semibold">{label}</Text>
-                  <Text className="text-xs text-muted">{desc}</Text>
+                  <Text className="text-sm font-extrabold text-white">{item.title}</Text>
+                  <Text className="text-xs font-semibold text-slate-400">{item.desc}</Text>
                 </View>
-                <Text className="text-muted text-lg">›</Text>
+                <Text className="text-slate-400 font-extrabold">›</Text>
               </GlassCard>
             ))}
           </View>
 
-          {/* Sign Out */}
-          <View className="mt-2">
-            <GlassCard intensity="subtle" padding="md" radius="xl" className="items-center" onPress={handleSignOut} blurAmount={16} staggerIndex={7}>
-              {isLoggingOut ? (
-                <ActivityIndicator size="small" color="#FF3B30" />
-              ) : (
-                <Text className="text-[#FF3B30] font-semibold text-base">Sign Out</Text>
-              )}
-            </GlassCard>
-            <Text className="text-xs text-muted text-center mt-3">
-              Signed in as {user?.name || "Cricket Player"}
-            </Text>
-          </View>
+          {/* SIGN OUT */}
+          <TouchableOpacity
+            onPress={handleSignOut}
+            className="bg-red-500/15 border border-red-500/30 rounded-2xl py-3.5 items-center mt-2 active:opacity-80"
+          >
+            {isLoggingOut ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <Text className="text-red-400 font-extrabold text-sm uppercase tracking-wider">Sign Out Account</Text>
+            )}
+          </TouchableOpacity>
+
         </View>
       </ScrollView>
     </ScreenContainer>

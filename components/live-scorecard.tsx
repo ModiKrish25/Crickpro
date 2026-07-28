@@ -21,7 +21,7 @@ import {
 } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { useResponsive } from "@/hooks/use-responsive";
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import * as Haptics from "expo-haptics";
 
 import { BoundaryCelebration } from "./animations/boundary-celebration";
@@ -181,15 +181,46 @@ export function LiveScorecard({
   const [activeAnimation, setActiveAnimation] = useState<AnimationType>(null);
   const [showDismissalPicker, setShowDismissalPicker] = useState(false);
   const [showExtrasPicker, setShowExtrasPicker] = useState(false);
+  const [activeExtraType, setActiveExtraType] = useState<"wide" | "no_ball" | "bye" | "leg_bye" | null>(null);
   const [showFullScorecard, setShowFullScorecard] = useState(false);
   const [showCommentary, setShowCommentary] = useState(false);
   const [showBatterPicker, setShowBatterPicker] = useState(false);
   const [pendingDismissalType, setPendingDismissalType] = useState<string | null>(null);
   const [dismissedBatterName, setDismissedBatterName] = useState<string | null>(null);
   const [showBowlerPicker, setShowBowlerPicker] = useState(false);
+  const [showNextBatterPicker, setShowNextBatterPicker] = useState(false);
   const [showFielderPicker, setShowFielderPicker] = useState(false);
   const [pendingFielderName, setPendingFielderName] = useState<string | null>(null);
   const responsive = useResponsive();
+
+  // Auto-prompt bowler change modal when an over finishes (e.g. 1.0, 2.0, 3.0)
+  const prevOversRef = useRef(oversString);
+  useEffect(() => {
+    if (oversString && oversString !== prevOversRef.current) {
+      const isEnd = oversString.endsWith(".0") && oversString !== "0.0";
+      if (isEnd && !matchResult) {
+        setShowBowlerPicker(true);
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+      prevOversRef.current = oversString;
+    }
+  }, [oversString, matchResult]);
+
+  // Auto-prompt Next Batter Selection Popup when a wicket falls
+  const prevWicketsRef = useRef(currentWickets);
+  useEffect(() => {
+    if (currentWickets > prevWicketsRef.current) {
+      if (!matchResult && !chaseIsAllOut) {
+        setShowNextBatterPicker(true);
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+      }
+    }
+    prevWicketsRef.current = currentWickets;
+  }, [currentWickets, matchResult, chaseIsAllOut]);
 
   // Build commentary entries from recent deliveries
   const commentaryEntries = useMemo(() => {
@@ -216,12 +247,13 @@ export function LiveScorecard({
     if (runs === 6) setActiveAnimation("boundary-6");
   };
 
-  const handleExtraPress = async (type: string, runsOffBat = 0) => {
+  const handleExtraPress = async (type: string, runsOffBat = 0, extraRuns = 1) => {
     if (Platform.OS !== "web") {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    onExtra(type, runsOffBat);
+    onExtra(type, runsOffBat, extraRuns);
     setShowExtrasPicker(false);
+    setActiveExtraType(null);
   };
 
   // Dismissal types that require a fielder to be credited
@@ -277,78 +309,251 @@ export function LiveScorecard({
 
   const getBallDisplay = (ball: BallRecord) => {
     if (ball.isWicket) return "W";
-    // Show extras with runs: WD+2, NB 4, etc.
-    if (ball.extraType === "wide") {
-      const batRuns = ball.runsOffBat;
-      if (batRuns > 0) return `WD+${batRuns}`;
-      return "Wd";
+    const typeStr = String(ball.extraType || "");
+    if (typeStr === "wide") {
+      const extraRuns = ball.extraRuns || 1;
+      return extraRuns > 1 ? `Wd+${extraRuns - 1}` : "Wd";
     }
-    if (ball.extraType === "no_ball") {
-      const batRuns = ball.runsOffBat;
-      if (batRuns > 0) return `NB ${batRuns}`;
-      return "Nb";
+    if (typeStr === "no_ball" || typeStr === "no-ball") {
+      const batRuns = ball.runsOffBat || 0;
+      return `Nb+${batRuns}`;
     }
-    // Byes and leg-byes show total runs from the ball
-    if (ball.extraType === "bye" || ball.extraType === "leg_bye") {
-      return `${ball.totalRunsFromBall}B`;
+    if (typeStr === "bye") {
+      return `${ball.extraRuns || ball.totalRunsFromBall}B`;
     }
-    if (ball.totalRunsFromBall === 0) return "•";
+    if (typeStr === "leg_bye" || typeStr === "leg-bye") {
+      return `${ball.extraRuns || ball.totalRunsFromBall}LB`;
+    }
+    if (ball.totalRunsFromBall === 0) return "0";
     return String(ball.totalRunsFromBall);
   };
 
-  const getBallColor = (ball: BallRecord) => {
-    if (ball.isWicket) return colors.error;
-    if (ball.totalRunsFromBall >= 6) return "#10B981";
-    if (ball.totalRunsFromBall === 4) return "#3B82F6";
-    if (ball.totalRunsFromBall === 0) return colors.muted;
-    return colors.foreground;
+  const getBallStyle = (ball: BallRecord) => {
+    if (ball.isWicket) return { bg: "#EF4444", text: "#FFFFFF" }; // Red with white text
+    if (ball.totalRunsFromBall >= 6) return { bg: "#10B981", text: "#FFFFFF" }; // Green with white text
+    if (ball.totalRunsFromBall === 4) return { bg: "#3B82F6", text: "#FFFFFF" }; // Blue with white text
+    if (ball.totalRunsFromBall === 0) return { bg: "#475569", text: "#FFFFFF" }; // Slate gray with white text
+    // Regular runs (1, 2, 3, 5) and extras (1B, 2B, Wd, etc.) -> White circle with BLACK text
+    return { bg: "#FFFFFF", text: "#000000" };
   };
 
   const renderBallStrip = () => (
     <View className="flex-row gap-1.5 items-center justify-center py-2">
-      {recentDeliveries.slice(0, 6).map((ball, idx) => (
-        <View
-          key={`${ball.ballIndex}-${idx}`}
-          className="w-7 h-7 rounded-full items-center justify-center"
-          style={{ backgroundColor: getBallColor(ball) }}
-        >
-          <Text className="text-[10px] font-bold text-white">{getBallDisplay(ball)}</Text>
-        </View>
-      ))}
+      {recentDeliveries.slice(0, 6).map((ball, idx) => {
+        const style = getBallStyle(ball);
+        return (
+          <View
+            key={`${ball.ballIndex}-${idx}`}
+            className="w-7 h-7 rounded-full items-center justify-center shadow-sm"
+            style={{ backgroundColor: style.bg }}
+          >
+            <Text className="text-[10px] font-black" style={{ color: style.text }}>
+              {getBallDisplay(ball)}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 
-  const renderExtraOptions = () => (
-    <View className="bg-surface rounded-xl p-4 gap-3">
-      <Text className="text-sm font-semibold text-muted uppercase">Select Extra</Text>
-      <View className="flex-row gap-2 flex-wrap">
-        {[
-          { label: "Wide", type: "wide" },
-          { label: "No Ball", type: "no-ball" },
-          { label: "No Ball + Run", type: "no-ball", runs: 1 },
-          { label: "Bye", type: "bye" },
-          { label: "Leg Bye", type: "leg-bye" },
-          { label: "Penalty", type: "penalty" },
-        ].map((item) => (
-          <TouchableOpacity
-            key={`${item.type}-${item.runs || 0}`}
-            className="bg-primary/10 border border-primary rounded-lg px-4 py-2.5 active:opacity-80"
-            onPress={() => handleExtraPress(item.type, item.runs || 0)}
-          >
-            <Text className="text-sm font-semibold text-primary">
-              {item.label}
+  const renderExtraOptions = () => {
+    const type = activeExtraType || "no_ball";
+
+    if (type === "no_ball") {
+      return (
+        <View className="bg-surface rounded-2xl p-4 gap-3 border border-orange-500/40 shadow-xl">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-black text-orange-500 uppercase tracking-wider">
+              ⚡ No Ball Runs (NB + Runs)
             </Text>
+            <View className="bg-orange-500/20 rounded-full px-2.5 py-0.5 border border-orange-500/30">
+              <Text className="text-[10px] font-bold text-orange-500">+1 Penalty Run</Text>
+            </View>
+          </View>
+
+          <Text className="text-xs text-muted">
+            Select runs scored off the bat for this No Ball:
+          </Text>
+
+          <View className="flex-row flex-wrap gap-2">
+            {[0, 1, 2, 3, 4, 5, 6].map((runs) => (
+              <TouchableOpacity
+                key={`nb-${runs}`}
+                className={`flex-1 min-w-[28%] rounded-xl py-3 items-center active:opacity-80 border ${
+                  runs === 6
+                    ? "bg-green-600/20 border-green-500"
+                    : runs === 4
+                      ? "bg-blue-600/20 border-blue-500"
+                      : "bg-orange-500/20 border-orange-500"
+                }`}
+                onPress={() => handleExtraPress("no_ball", runs, 1)}
+              >
+                <Text className="text-lg font-black text-foreground">
+                  nb+{runs}
+                </Text>
+                <Text className="text-[9px] font-semibold text-muted">
+                  {runs + 1} run{runs + 1 !== 1 ? "s" : ""} total
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            className="py-2.5 items-center active:opacity-80 border-t border-border/20 mt-1"
+            onPress={() => {
+              setShowExtrasPicker(false);
+              setActiveExtraType(null);
+            }}
+          >
+            <Text className="text-xs font-bold text-muted">Cancel</Text>
           </TouchableOpacity>
-        ))}
+        </View>
+      );
+    }
+
+    if (type === "wide") {
+      return (
+        <View className="bg-surface rounded-2xl p-4 gap-3 border border-amber-500/40 shadow-xl">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-black text-amber-500 uppercase tracking-wider">
+              ⚠️ Wide Ball Runs (WD + Runs)
+            </Text>
+            <View className="bg-amber-500/20 rounded-full px-2.5 py-0.5 border border-amber-500/30">
+              <Text className="text-[10px] font-bold text-amber-500">Wide Delivery</Text>
+            </View>
+          </View>
+
+          <Text className="text-xs text-muted">
+            Select total wide runs (including penalty):
+          </Text>
+
+          <View className="flex-row flex-wrap gap-2">
+            {[
+              { label: "wd+0", runs: 1, sub: "1 run" },
+              { label: "wd+1", runs: 2, sub: "2 runs" },
+              { label: "wd+2", runs: 3, sub: "3 runs" },
+              { label: "wd+3", runs: 4, sub: "4 runs" },
+              { label: "wd+4", runs: 5, sub: "5 runs (Bdr)" },
+              { label: "wd+5", runs: 6, sub: "6 runs" },
+            ].map((item) => (
+              <TouchableOpacity
+                key={item.label}
+                className="flex-1 min-w-[28%] bg-amber-500/20 border border-amber-500 rounded-xl py-3 items-center active:opacity-80"
+                onPress={() => handleExtraPress("wide", 0, item.runs)}
+              >
+                <Text className="text-lg font-black text-foreground">{item.label}</Text>
+                <Text className="text-[9px] font-semibold text-muted">{item.sub}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            className="py-2.5 items-center active:opacity-80 border-t border-border/20 mt-1"
+            onPress={() => {
+              setShowExtrasPicker(false);
+              setActiveExtraType(null);
+            }}
+          >
+            <Text className="text-xs font-bold text-muted">Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (type === "bye" || type === "leg_bye") {
+      const isLegBye = type === "leg_bye";
+      const labelPrefix = isLegBye ? "Leg Bye" : "Bye";
+      const codePrefix = isLegBye ? "LB" : "B";
+      const color = isLegBye ? "text-indigo-500" : "text-purple-500";
+      const borderColor = isLegBye ? "border-indigo-500/40" : "border-purple-500/40";
+      const bgAccent = isLegBye ? "bg-indigo-500/20 border-indigo-500" : "bg-purple-500/20 border-purple-500";
+
+      return (
+        <View className={`bg-surface rounded-2xl p-4 gap-3 border ${borderColor} shadow-xl`}>
+          <View className="flex-row items-center justify-between">
+            <Text className={`text-sm font-black ${color} uppercase tracking-wider`}>
+              🏏 {labelPrefix} Runs
+            </Text>
+            <View className="bg-primary/10 rounded-full px-2.5 py-0.5">
+              <Text className="text-[10px] font-bold text-primary">Uncredited to Batter</Text>
+            </View>
+          </View>
+
+          <Text className="text-xs text-muted">
+            Select runs taken as {labelPrefix.toLowerCase()}s:
+          </Text>
+
+          <View className="flex-row flex-wrap gap-2">
+            {[1, 2, 3, 4, 5].map((runs) => (
+              <TouchableOpacity
+                key={`${codePrefix}-${runs}`}
+                className={`flex-1 min-w-[28%] ${bgAccent} rounded-xl py-3 items-center active:opacity-80 border`}
+                onPress={() => handleExtraPress(type, 0, runs)}
+              >
+                <Text className="text-lg font-black text-foreground">
+                  {runs} {codePrefix}
+                </Text>
+                <Text className="text-[9px] font-semibold text-muted">
+                  {runs} run{runs !== 1 ? "s" : ""}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            className="py-2.5 items-center active:opacity-80 border-t border-border/20 mt-1"
+            onPress={() => {
+              setShowExtrasPicker(false);
+              setActiveExtraType(null);
+            }}
+          >
+            <Text className="text-xs font-bold text-muted">Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View className="bg-surface rounded-2xl p-4 gap-3">
+        <Text className="text-sm font-semibold text-muted uppercase">Select Extra</Text>
+        <View className="flex-row gap-2 flex-wrap">
+          <TouchableOpacity
+            className="bg-orange-500/20 border border-orange-500 rounded-xl px-4 py-2.5 active:opacity-80"
+            onPress={() => setActiveExtraType("no_ball")}
+          >
+            <Text className="text-sm font-bold text-orange-500">No Ball (NB)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="bg-amber-500/20 border border-amber-500 rounded-xl px-4 py-2.5 active:opacity-80"
+            onPress={() => setActiveExtraType("wide")}
+          >
+            <Text className="text-sm font-bold text-amber-500">Wide (WD)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="bg-purple-500/20 border border-purple-500 rounded-xl px-4 py-2.5 active:opacity-80"
+            onPress={() => setActiveExtraType("bye")}
+          >
+            <Text className="text-sm font-bold text-purple-500">Bye (B)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="bg-indigo-500/20 border border-indigo-500 rounded-xl px-4 py-2.5 active:opacity-80"
+            onPress={() => setActiveExtraType("leg_bye")}
+          >
+            <Text className="text-sm font-bold text-indigo-500">Leg Bye (LB)</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          className="py-2 items-center active:opacity-80"
+          onPress={() => {
+            setShowExtrasPicker(false);
+            setActiveExtraType(null);
+          }}
+        >
+          <Text className="text-sm text-muted">Cancel</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        className="py-2 items-center active:opacity-80"
-        onPress={() => setShowExtrasPicker(false)}
-      >
-        <Text className="text-sm text-muted">Cancel</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const renderDismissalOptions = () => (
     <View className="bg-surface rounded-xl p-4 gap-3">
@@ -449,6 +654,69 @@ export function LiveScorecard({
     </View>
   );
 
+  const renderNextBatterPicker = () => {
+    // Filter batters from battingOrder who have not batted yet
+    const availableNextBatters = battingOrder.filter(
+      b => b.status === "yet_to_bat" || b.status === "upcoming" || b.status === "dnb"
+    );
+
+    return (
+      <View className="bg-surface rounded-2xl p-4 gap-3 border border-primary/30 shadow-xl">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-base font-black text-foreground uppercase tracking-wide">
+            🏏 Select Next Batter
+          </Text>
+          <View className="bg-rose-500/10 rounded-full px-2.5 py-0.5 border border-rose-500/20">
+            <Text className="text-[10px] font-bold text-rose-500">WICKET FALLEN</Text>
+          </View>
+        </View>
+
+        <Text className="text-xs text-muted">
+          Select who comes in to bat next for <Text className="font-bold text-foreground">{isSecondInnings ? team2Name : team1Name}</Text> after {dismissedBatterName || "wicket"}.
+        </Text>
+
+        {availableNextBatters.length === 0 ? (
+          <View className="bg-background rounded-xl p-4 items-center gap-2">
+            <Text className="text-sm text-muted italic">All squad batters have already batted or team is all out.</Text>
+          </View>
+        ) : (
+          <View className="gap-2 mt-1">
+            {availableNextBatters.map((batter, idx) => (
+              <TouchableOpacity
+                key={batter.name}
+                className="bg-background border border-border rounded-xl p-3.5 flex-row items-center gap-3 active:opacity-80"
+                onPress={async () => {
+                  if (Platform.OS !== "web") {
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }
+                  setShowNextBatterPicker(false);
+                }}
+              >
+                <View className="w-9 h-9 rounded-full bg-primary/10 items-center justify-center">
+                  <Text className="text-sm font-bold text-primary">#{idx + 1}</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-foreground">{batter.name}</Text>
+                  <Text className="text-xs text-muted mt-0.5">Yet to bat • Batter</Text>
+                </View>
+                <View className="bg-primary/10 rounded-lg px-2.5 py-1.5 border border-primary/20">
+                  <Text className="text-xs font-bold text-primary">SELECT</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <TouchableOpacity
+          className="py-2.5 items-center active:opacity-80 border-t border-border/20 mt-1"
+          onPress={() => setShowNextBatterPicker(false)}
+        >
+          <Text className="text-xs font-bold text-muted">Dismiss</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderFielderPicker = () => {
     // Use the bowler figures as the known set of fielding team players
     const fielders = bowlersFigures;
@@ -510,52 +778,46 @@ export function LiveScorecard({
   const renderBowlerPicker = () => {
     const ballsInCurrentOver = parseInt((oversString || "0.0").split(".")[1] || "0", 10);
     const isMiddleOfOver = ballsInCurrentOver > 0;
-
-    // Filter out bowlers with same name as current to avoid recommending same bowler
-    const availableBowlers = bowlersFigures.filter(
-      b => b.name !== currentBowler?.name
-    );
+    const lastBowler = lastOverBowlerName || (isMiddleOfOver ? null : currentBowler?.name);
 
     return (
-      <View className="bg-surface rounded-xl p-4 gap-3">
-        <Text className="text-sm font-semibold text-muted uppercase">Change Bowler</Text>
-        <Text className="text-xs text-muted mb-1">
-          Current: <Text className="font-bold text-foreground">{currentBowler?.name || "None"}</Text>
+      <View className="bg-surface rounded-2xl p-4 gap-3 border border-primary/30 shadow-xl">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-base font-black text-foreground uppercase tracking-wide">
+            ⚾ Select Next Bowler
+          </Text>
+          <View className="bg-primary/10 rounded-full px-2.5 py-0.5 border border-primary/20">
+            <Text className="text-[10px] font-bold text-primary">OVER COMPLETED</Text>
+          </View>
+        </View>
+
+        <Text className="text-xs text-muted">
+          Select bowler for the next over. <Text className="font-bold text-[#0066FF]">(MCC Law 17.2: Same bowler cannot bowl consecutive overs)</Text>
         </Text>
 
-        {isMiddleOfOver && (
-          <View className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-1 flex-row items-center gap-2">
-            <Text className="text-sm">🔒</Text>
-            <Text className="text-xs font-semibold text-amber-600 flex-1">
-              Bowler cannot be changed during an over (MCC Rule 17.1). Complete the current over first.
-            </Text>
-          </View>
-        )}
-
-        {!isMiddleOfOver && lastOverBowlerName && bowlersFigures.length > 1 && (
-          <View className="bg-[#0066FF]/10 border border-[#0066FF]/20 rounded-xl p-3 mb-1 flex-row items-center gap-2">
+        {lastBowler && bowlersFigures.length > 1 && (
+          <View className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-1 flex-row items-center gap-2">
             <Text className="text-sm">🚫</Text>
-            <Text className="text-xs font-semibold text-[#0066FF] flex-1">
-              <Text className="font-bold">{lastOverBowlerName}</Text> bowled the previous over and cannot bowl consecutive overs (MCC Law 17.2).
+            <Text className="text-xs font-semibold text-red-500 flex-1">
+              <Text className="font-bold">{lastBowler}</Text> bowled the previous over and CANNOT be selected for this over.
             </Text>
           </View>
         )}
 
-        {availableBowlers.length === 0 ? (
-          <View className="bg-background rounded-xl p-4 items-center">
-            <Text className="text-sm text-muted italic">No other bowlers available</Text>
-          </View>
-        ) : (
-          availableBowlers.map((bowler) => {
-            const isConsecutiveOver = !isMiddleOfOver && bowler.name === lastOverBowlerName && bowlersFigures.length > 1;
-            const isDisabled = isMiddleOfOver || isConsecutiveOver;
+        <View className="gap-2 mt-1">
+          {bowlersFigures.map((bowler) => {
+            const isLastOverBowler = bowler.name === lastBowler;
+            const isCurrentBowler = bowler.name === currentBowler?.name;
+            const isDisabled = isMiddleOfOver ? !isCurrentBowler : (isLastOverBowler && bowlersFigures.length > 1);
 
             return (
               <TouchableOpacity
                 key={bowler.name}
                 disabled={isDisabled}
-                className={`bg-background border border-border rounded-xl p-3.5 flex-row items-center gap-3 ${
-                  isDisabled ? "opacity-40" : "active:opacity-80"
+                className={`border rounded-xl p-3.5 flex-row items-center gap-3 ${
+                  isDisabled
+                    ? "bg-background/40 border-border/20 opacity-40"
+                    : "bg-background border-border active:opacity-80"
                 }`}
                 onPress={async () => {
                   if (isDisabled) return;
@@ -566,31 +828,36 @@ export function LiveScorecard({
                   setShowBowlerPicker(false);
                 }}
               >
-                <View className="w-9 h-9 rounded-full bg-primary/10 items-center justify-center">
-                  <Text className="text-base">⚾</Text>
+                <View className={`w-9 h-9 rounded-full items-center justify-center ${isDisabled ? "bg-muted/10" : "bg-primary/10"}`}>
+                  <Text className="text-base">{isDisabled ? "🚫" : "⚾"}</Text>
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm font-bold text-foreground">{bowler.name}</Text>
+                  <Text className={`text-sm font-bold ${isDisabled ? "text-muted" : "text-foreground"}`}>
+                    {bowler.name}
+                  </Text>
                   <Text className="text-xs text-muted mt-0.5">
                     {formatOvers(bowler.overs)} ov • {bowler.runs} runs • {bowler.wickets} wkts • econ {bowler.economy.toFixed(1)}
                   </Text>
                 </View>
-                <View className={`rounded-lg px-2.5 py-1.5 ${isDisabled ? "bg-muted/10" : "bg-primary/10"}`}>
-                  <Text className={`text-xs font-bold ${isDisabled ? "text-muted" : "text-primary"}`}>
-                    {isMiddleOfOver ? "MID-OVER" : isConsecutiveOver ? "LAST OVER" : "SELECT"}
+
+                <View className={`rounded-lg px-2.5 py-1.5 ${
+                  isDisabled ? "bg-red-500/10 border border-red-500/20" : "bg-primary/10 border border-primary/20"
+                }`}>
+                  <Text className={`text-xs font-bold ${isDisabled ? "text-red-500" : "text-primary"}`}>
+                    {isMiddleOfOver ? "MID-OVER" : isLastOverBowler ? "RESTRICTED" : "SELECT"}
                   </Text>
                 </View>
               </TouchableOpacity>
             );
-          })
-        )}
+          })}
+        </View>
 
         {/* Cancel */}
         <TouchableOpacity
-          className="py-2 items-center active:opacity-80"
+          className="py-2.5 items-center active:opacity-80 border-t border-border/20 mt-1"
           onPress={() => setShowBowlerPicker(false)}
         >
-          <Text className="text-sm text-muted">Cancel</Text>
+          <Text className="text-xs font-bold text-muted">Dismiss</Text>
         </TouchableOpacity>
       </View>
     );
@@ -865,26 +1132,28 @@ export function LiveScorecard({
 
       {matchResult ? (
         /* ===== MATCH RESULT DISPLAY ===== */
-        <View className="mx-5 mt-4">              <GlassCard intensity="high" glowColor="#34C759" padding="lg" radius="xl" className="items-center gap-3" staggerIndex={0}>
-          <LiquidGlassOverlay color="#34C759" variant="pulse" speed={0.7} intensity={0.6} />
-          <Text className="text-lg font-bold text-primary text-center">
-            {matchResult.description}
-          </Text>
-          <Text className="text-sm text-muted text-center">
-            {team1Name}: {firstInningsScore || `${currentRuns}/${currentWickets} (${oversString})`}
-            {matchResult.team1Score && ` • ${matchResult.team1Score}`}
-          </Text>
-          {isSecondInnings && matchResult.team2Score && (
-            <Text className="text-sm text-muted text-center">
-              {team2Name}: {matchResult.team2Score}
+        <View className="mx-5 mt-4">
+          <GlassCard intensity="high" glowColor="#34C759" padding="lg" radius="xl" className="items-center gap-3" staggerIndex={0}>
+            <LiquidGlassOverlay color="#34C759" variant="pulse" speed={0.7} intensity={0.6} />
+            <Text className="text-lg font-bold text-primary text-center">
+              {matchResult.description}
             </Text>
-          )}              <TouchableOpacity
-                className="mt-2 bg-[#0066FF] rounded-2xl px-6 py-3 active:opacity-80"
-                style={{ shadowColor: "#0066FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}
-                onPress={onEndMatch}
-              >
-                <Text className="text-white font-bold text-sm">Finish Match</Text>
-              </TouchableOpacity>
+            <Text className="text-sm text-muted text-center">
+              {team1Name}: {firstInningsScore || `${currentRuns}/${currentWickets} (${oversString})`}
+              {matchResult.team1Score && ` • ${matchResult.team1Score}`}
+            </Text>
+            {isSecondInnings && matchResult.team2Score && (
+              <Text className="text-sm text-muted text-center">
+                {team2Name}: {matchResult.team2Score}
+              </Text>
+            )}
+            <TouchableOpacity
+              className="mt-2 bg-[#0066FF] rounded-2xl px-6 py-3 active:opacity-80"
+              style={{ shadowColor: "#0066FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }}
+              onPress={onEndMatch}
+            >
+              <Text className="text-white font-bold text-sm">Finish Match</Text>
+            </TouchableOpacity>
           </GlassCard>
         </View>
       ) : showFielderPicker ? (
@@ -895,10 +1164,15 @@ export function LiveScorecard({
         <View className="mx-5 mt-4">
           {renderBatterPicker()}
         </View>
+      ) : showNextBatterPicker ? (
+        <View className="mx-5 mt-4">
+          {renderNextBatterPicker()}
+        </View>
       ) : showBowlerPicker ? (
         <View className="mx-5 mt-4">
           {renderBowlerPicker()}
-        </View>          ) : !showExtrasPicker && !showDismissalPicker ? (
+        </View>
+      ) : (!showExtrasPicker && !activeExtraType && !showDismissalPicker) ? (
         <>
           <View className={responsive.orientation === "landscape" ? "flex-row gap-3 mx-3 mt-2" : "flex-col"}>
           <View className={responsive.orientation === "landscape" ? "flex-1" : "mx-5 mt-4"}>
@@ -954,7 +1228,7 @@ export function LiveScorecard({
           </GlassCard>
           </View>
 
-          {/* ===== PARTNERSHIP PANEL - Premium Glass Card ===== */}
+          {/* ===== PARTNERSHIP PANEL ===== */}
           {currentPartnership && currentPartnership.balls > 0 && (
             <View className="mx-5 mt-3">
               <GlassCard intensity="medium" padding="none" radius="xl" className="overflow-hidden" staggerIndex={1}>
@@ -970,7 +1244,7 @@ export function LiveScorecard({
                   </View>
                 </View>
 
-                {/* Partnership stat summary — Clean non-overlapping grid */}
+                {/* Partnership stat summary */}
                 <View className="flex-row items-center justify-between my-2 bg-amber-500/5 rounded-xl p-2.5 border border-amber-500/10">
                   <View className="items-center flex-1">
                     <Text className="text-lg sm:text-2xl font-black text-foreground" numberOfLines={1}>
@@ -1038,7 +1312,7 @@ export function LiveScorecard({
           </View>
           )}
 
-          {/* ===== BOWLER PANEL - Premium Glass Card ===== */}
+          {/* ===== BOWLER PANEL ===== */}
           {(() => {
             const ballsInCurrentOver = parseInt((oversString || "0.0").split(".")[1] || "0", 10);
             const isMiddleOfOver = ballsInCurrentOver > 0;
@@ -1091,10 +1365,10 @@ export function LiveScorecard({
                   <View className="flex-1 flex-row items-center gap-1.5">
                     {currentBowler?.name === bowler.name && (
                       <View className="w-2 h-2 rounded-full bg-[#0066FF]" />
-                    )}                      <Text className={`text-sm ${currentBowler?.name === bowler.name ? "font-bold text-foreground" : "font-semibold text-muted"}`} numberOfLines={1}>
+                    )}
+                      <Text className={`text-sm ${currentBowler?.name === bowler.name ? "font-bold text-foreground" : "font-semibold text-muted"}`} numberOfLines={1}>
                         {bowler.name}
                       </Text>
-                      {/* Maiden over indicator */}
                       {bowler.maidens > 0 && (
                         <View className="bg-cyan-400/15 rounded-md px-1.5 py-0.5">
                           <Text className="text-[8px] font-bold text-cyan-400">🔵 M{bowler.maidens}</Text>
@@ -1131,186 +1405,140 @@ export function LiveScorecard({
           })()}
           </View>
 
-          {/* ===== SCORING CONTROLS - Premium Design ===== */}
-          <View className="mx-5 mt-4 gap-3">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-xs font-bold text-muted uppercase tracking-wider">
-                🎯 Scoring Controls
-              </Text>
-              <View className="bg-[#0066FF]/10 rounded-full px-2.5 py-0.5">
-                <Text className="text-[9px] font-bold text-[#0066FF]">BALL-BY-BALL</Text>
-              </View>
-            </View>
-
-            {/* Run Buttons - Premium Grid */}
-            <View className="bg-white/40 dark:bg-white/[0.04] rounded-2xl p-2 border border-white/30 dark:border-white/10">
-              <Text className="text-[10px] text-muted font-semibold mb-2 px-2 pt-1">Runs</Text>
-              {responsive.orientation === "landscape" ? (
-                <View className="flex-col gap-1.5">
-                  <View className="flex-row gap-1.5">
-                    {[0, 1, 2, 3].map((runs) => (
-                      <Pressable
-                        key={runs}
-                        className={`flex-1 rounded-xl py-3 items-center active:opacity-80 ${
-                          runs === 0
-                            ? "bg-[#787880]"
-                            : "bg-[#0066FF]"
-                        }`}
-                        style={({ pressed }) => ({
-                          transform: [{ scale: pressed ? 0.92 : 1 }],
-                          shadowColor: "#0066FF",
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: pressed ? 0.1 : 0.2,
-                          shadowRadius: 4,
-                          elevation: pressed ? 3 : 5,
-                        })}
-                        onPress={() => handleRunPress(runs)}
-                      >
-                        <Text className="text-xl font-bold text-white">{runs}</Text>
-                        <Text className="text-[7px] text-white/60 mt-0.5">
-                          {runs === 0 ? "dot" : "run"}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                  <View className="flex-row gap-1.5">
-                    {[4, 5, 6].map((runs) => (
-                      <Pressable
-                        key={runs}
-                        className={`flex-1 rounded-xl py-3 items-center active:opacity-80 ${
-                          runs === 6
-                            ? "bg-green-500"
-                            : runs === 4
-                              ? "bg-blue-500"
-                              : "bg-[#0066FF]"
-                        }`}
-                        style={({ pressed }) => ({
-                          transform: [{ scale: pressed ? 0.92 : 1 }],
-                          shadowColor: runs === 6 ? "#22C55E" : runs === 4 ? "#3B82F6" : "#0066FF",
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: pressed ? 0.1 : 0.2,
-                          shadowRadius: 4,
-                          elevation: pressed ? 3 : 5,
-                        })}
-                        onPress={() => handleRunPress(runs)}
-                      >
-                        <Text className="text-xl font-bold text-white">{runs}</Text>
-                        <Text className="text-[7px] text-white/60 mt-0.5">
-                          {runs === 6 ? "SIX!" : runs === 4 ? "FOUR" : "run"}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
+          {/* ===== SCORING CONTROLS (Full-Width Responsive Keypad) ===== */}
+          <View className="mx-5 mt-4">
+            <GlassCard intensity="heavy" padding="lg" radius="xl" className="gap-3 bg-[#0D121D]/90 border-white/15">
+              {/* Header */}
+              <View className="flex-row items-center justify-between pb-2 border-b border-white/10">
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-base font-black text-white tracking-tight">🎯 SCORING CONTROLS</Text>
                 </View>
-              ) : (
-                <View className="flex-row gap-2">
-                  {[0, 1, 2, 3, 4, 5, 6].map((runs) => (
-                    <Pressable
-                      key={runs}
-                      className={`flex-1 rounded-2xl py-4 items-center active:opacity-80 ${
-                        runs === 6
-                          ? "bg-green-500"
-                          : runs === 4
-                            ? "bg-blue-500"
-                            : runs === 0
-                              ? "bg-[#787880]"
-                              : "bg-[#0066FF]"
-                      }`}
-                      style={({ pressed }) => ({
-                        transform: [{ scale: pressed ? 0.92 : 1 }],
-                        shadowColor: runs === 6 ? "#22C55E" : runs === 4 ? "#3B82F6" : "#0066FF",
-                        shadowOffset: { width: 0, height: 3 },
-                        shadowOpacity: pressed ? 0.1 : 0.2,
-                        shadowRadius: 6,
-                        elevation: pressed ? 3 : 5,
-                      })}
-                      onPress={() => handleRunPress(runs)}
+                <View className="bg-[#10B981]/20 border border-[#10B981]/40 rounded-full px-3 py-1">
+                  <Text className="text-[10px] font-black text-[#10B981] uppercase tracking-wider">BALL-BY-BALL</Text>
+                </View>
+              </View>
+
+              {/* Main Runs Section */}
+              <View className="gap-2.5">
+                <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider">Runs</Text>
+                
+                {/* Row 1: 0, 1, 2, 3, 4 */}
+                <View className="flex-row gap-2 w-full">
+                  {[
+                    { runs: 0, label: "DOT", bg: "bg-slate-700/80 border-slate-600" },
+                    { runs: 1, label: "1 RUN", bg: "bg-[#0066FF] border-blue-400/30" },
+                    { runs: 2, label: "2 RUNS", bg: "bg-[#0066FF] border-blue-400/30" },
+                    { runs: 3, label: "3 RUNS", bg: "bg-[#0066FF] border-blue-400/30" },
+                    { runs: 4, label: "FOUR ⚡", bg: "bg-blue-600 border-blue-400" },
+                  ].map((btn) => (
+                    <TouchableOpacity
+                      key={btn.runs}
+                      activeOpacity={0.75}
+                      onPress={() => handleRunPress(btn.runs)}
+                      className={`flex-1 py-3.5 items-center justify-center rounded-2xl border ${btn.bg} shadow-lg shadow-black/40 active:scale-95`}
                     >
-                      <Text className="text-2xl font-bold text-white">{runs}</Text>
-                      <Text className="text-[8px] text-white/60 mt-0.5">
-                        {runs === 0 ? "dot" : runs === 6 ? "SIX!" : runs === 4 ? "FOUR" : "run"}
-                      </Text>
-                    </Pressable>
+                      <Text className="text-2xl font-black text-white">{btn.runs}</Text>
+                      <Text className="text-[9px] font-bold text-white/80 mt-0.5 uppercase tracking-wider">{btn.label}</Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
-              )}
-            </View>
 
-            {/* Extras & Actions Row - Premium Design */}
-            <View className="flex-row gap-2">
-              <Pressable
-                className="flex-1 bg-gradient-to-b from-orange-500 to-orange-600 rounded-2xl py-3.5 items-center active:opacity-80 flex-row justify-center gap-2"
-                style={({ pressed }) => ({
-                  transform: [{ scale: pressed ? 0.95 : 1 }],
-                  backgroundColor: "#F97316",
-                  shadowColor: "#F97316",
-                  shadowOffset: { width: 0, height: 3 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 6,
-                  elevation: 4,
-                })}
-                onPress={() => setShowExtrasPicker(true)}
-              >
-                <Text className="text-base font-bold text-white">📋 Extras</Text>
-              </Pressable>
+                {/* Row 2: 5, 6, WD, NB */}
+                <View className="flex-row gap-2 w-full">
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() => handleRunPress(5)}
+                    className="flex-1 py-3.5 items-center justify-center rounded-2xl border bg-[#0066FF] border-blue-400/30 shadow-lg shadow-black/40 active:scale-95"
+                  >
+                    <Text className="text-2xl font-black text-white">5</Text>
+                    <Text className="text-[9px] font-bold text-white/80 mt-0.5 uppercase tracking-wider">5 RUNS</Text>
+                  </TouchableOpacity>
 
-              <Pressable
-                className="flex-1 bg-[#FF3B30] rounded-2xl py-3.5 items-center active:opacity-80 flex-row justify-center gap-2"
-                style={({ pressed }) => ({
-                  transform: [{ scale: pressed ? 0.95 : 1 }],
-                  shadowColor: "#FF3B30",
-                  shadowOffset: { width: 0, height: 3 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 6,
-                  elevation: 4,
-                })}
-                onPress={() => setShowDismissalPicker(true)}
-              >
-                <Text className="text-base font-bold text-white">🎯 Wicket</Text>
-              </Pressable>
-            </View>
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() => handleRunPress(6)}
+                    className="flex-1 py-3.5 items-center justify-center rounded-2xl border bg-emerald-600 border-emerald-400 shadow-lg shadow-black/40 active:scale-95"
+                  >
+                    <Text className="text-2xl font-black text-white">6</Text>
+                    <Text className="text-[9px] font-bold text-white/80 mt-0.5 uppercase tracking-wider">SIX! 🔥</Text>
+                  </TouchableOpacity>
 
-            {/* Action Buttons - Premium Design */}
-            <View className="flex-row gap-2 mt-1">
-              <TouchableOpacity
-                className="flex-1 bg-white/50 dark:bg-white/[0.08] border border-white/30 dark:border-white/10 rounded-2xl py-3.5 items-center flex-row justify-center gap-1.5"
-                style={Platform.OS === "web" ? {
-                  backdropFilter: "blur(8px) saturate(180%)",
-                  WebkitBackdropFilter: "blur(8px) saturate(180%)",
-                } as any : {}}
-                onPress={onUndo}
-              >
-                <Text className="text-sm font-semibold text-foreground">↩ Undo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 bg-[#0066FF] rounded-2xl py-3.5 items-center flex-row justify-center gap-1.5"
-                style={{
-                  shadowColor: "#0066FF",
-                  shadowOffset: { width: 0, height: 3 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 6,
-                  elevation: 4,
-                }}
-                onPress={() => setShowCommentary(!showCommentary)}
-              >
-                <Text className="text-sm font-bold text-white">
-                  {showCommentary ? "🔇 Hide Commentary" : "🎙️ Commentary"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 bg-[#FF3B30] rounded-2xl py-3.5 items-center flex-row justify-center gap-1.5"
-                style={{
-                  shadowColor: "#FF3B30",
-                  shadowOffset: { width: 0, height: 3 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 6,
-                  elevation: 4,
-                }}
-                onPress={onEndInnings}
-              >
-                <Text className="text-sm font-bold text-white">⏹ End Inns</Text>
-              </TouchableOpacity>
-            </View>
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() => { setShowExtrasPicker(true); setActiveExtraType("wide"); }}
+                    className="flex-1 py-3.5 items-center justify-center rounded-2xl border bg-amber-600 border-amber-400/40 shadow-lg shadow-black/40 active:scale-95"
+                  >
+                    <Text className="text-xl font-black text-white">WD</Text>
+                    <Text className="text-[9px] font-bold text-white/80 mt-0.5 uppercase tracking-wider">WIDE</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() => { setShowExtrasPicker(true); setActiveExtraType("no_ball"); }}
+                    className="flex-1 py-3.5 items-center justify-center rounded-2xl border bg-orange-600 border-orange-400/40 shadow-lg shadow-black/40 active:scale-95"
+                  >
+                    <Text className="text-xl font-black text-white">NB</Text>
+                    <Text className="text-[9px] font-bold text-white/80 mt-0.5 uppercase tracking-wider">NO BALL</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Row 3: BYE, LB, WICKET */}
+                <View className="flex-row gap-2 w-full">
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() => { setShowExtrasPicker(true); setActiveExtraType("bye"); }}
+                    className="flex-1 py-3.5 items-center justify-center rounded-2xl border bg-purple-700 border-purple-400/30 shadow-lg shadow-black/40 active:scale-95"
+                  >
+                    <Text className="text-lg font-black text-white">BYE</Text>
+                    <Text className="text-[9px] font-bold text-white/80 mt-0.5 uppercase tracking-wider">BYE</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() => { setShowExtrasPicker(true); setActiveExtraType("leg_bye"); }}
+                    className="flex-1 py-3.5 items-center justify-center rounded-2xl border bg-indigo-700 border-indigo-400/30 shadow-lg shadow-black/40 active:scale-95"
+                  >
+                    <Text className="text-lg font-black text-white">LB</Text>
+                    <Text className="text-[9px] font-bold text-white/80 mt-0.5 uppercase tracking-wider">LEG BYE</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() => setShowDismissalPicker(true)}
+                    className="flex-[1.5] py-3.5 items-center justify-center rounded-2xl border bg-rose-600 border-rose-400 shadow-lg shadow-rose-600/40 active:scale-95"
+                  >
+                    <Text className="text-xl font-black text-white">🎯 WICKET</Text>
+                    <Text className="text-[9px] font-bold text-white/90 mt-0.5 uppercase tracking-wider">OUT / DISMISSAL</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Match Quick Actions Row */}
+              <View className="flex-row gap-2 mt-1 pt-2 border-t border-white/10">
+                <TouchableOpacity
+                  onPress={onUndo}
+                  className="flex-1 py-3 items-center justify-center rounded-xl bg-white/10 border border-white/15 active:opacity-80 flex-row gap-1.5"
+                >
+                  <Text className="text-sm font-bold text-white">↩ Undo</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setShowCommentary(!showCommentary)}
+                  className="flex-1 py-3 items-center justify-center rounded-xl bg-[#0066FF]/30 border border-[#0066FF]/50 active:opacity-80 flex-row gap-1.5"
+                >
+                  <Text className="text-sm font-bold text-white">
+                    {showCommentary ? "🔇 Hide Feed" : "🎙️ Commentary"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={onEndInnings}
+                  className="flex-1 py-3 items-center justify-center rounded-xl bg-rose-950/80 border border-rose-500/40 active:opacity-80 flex-row gap-1.5"
+                >
+                  <Text className="text-sm font-bold text-rose-300">⏹ End Inns</Text>
+                </TouchableOpacity>
+              </View>
+            </GlassCard>
           </View>
 
           {/* ===== COMMENTARY FEED ===== */}
@@ -1441,7 +1669,7 @@ export function LiveScorecard({
                               )}
                             </View>
                             
-                            {/* Fielder involved (caught, run-out, stumped) */}
+                            {/* Fielder involved */}
                             {hasFielder && (
                               <Text className="text-[10px] text-muted mt-0.5 flex-row items-center gap-1">
                                 ✋ <Text className="font-semibold text-foreground">{w.fielderInvolved}</Text>
@@ -1474,7 +1702,7 @@ export function LiveScorecard({
             </View>
           )}
         </>
-      ) : showExtrasPicker ? (
+      ) : (showExtrasPicker || activeExtraType) ? (
         <View className="mx-5 mt-4">
           {renderExtraOptions()}
         </View>

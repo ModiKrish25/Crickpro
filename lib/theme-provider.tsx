@@ -35,8 +35,7 @@ function applyDocumentScheme(scheme: ColorScheme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const systemScheme = useSystemColorScheme() ?? "dark";
-  const [colorScheme, setColorSchemeState] = useState<ColorScheme>("dark"); // Default dark for CrickPro premium glass UI
+  const [colorScheme, setColorSchemeState] = useState<ColorScheme>("dark"); // Default dark for CrickPro Apple OLED UI
   const [isUserSet, setIsUserSet] = useState(false);
 
   const applyScheme = useCallback((scheme: ColorScheme) => {
@@ -46,7 +45,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Apply default dark scheme synchronously on initial render
-  if (typeof document !== "undefined" && !document.documentElement.dataset.theme) {
+  if (typeof document !== "undefined") {
     applyDocumentScheme("dark");
   }
 
@@ -54,15 +53,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyScheme(colorScheme);
   }, [colorScheme, applyScheme]);
 
-  // Load persisted theme on mount
+  // Load persisted theme on mount (default strictly to "dark")
   useEffect(() => {
     loadThemePreference().then((preferred) => {
-      const scheme = preferred || systemScheme || "dark";
+      const scheme = preferred || "dark";
       setColorSchemeState(scheme);
       setIsUserSet(!!preferred);
       applyScheme(scheme);
     });
-  }, [systemScheme, applyScheme]);
+  }, [applyScheme]);
 
   const setColorScheme = useCallback((scheme: ColorScheme) => {
     setColorSchemeState(scheme);
@@ -73,11 +72,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const resetToSystem = useCallback(() => {
     setIsUserSet(false);
-    const scheme = systemScheme || "dark";
-    setColorSchemeState(scheme);
-    applyScheme(scheme);
+    setColorSchemeState("dark");
+    applyScheme("dark");
     clearThemePreference();
-  }, [applyScheme, systemScheme]);
+  }, [applyScheme]);
 
   const themeVariables = useMemo(
     () =>

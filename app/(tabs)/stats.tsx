@@ -1,12 +1,10 @@
 /**
- * Stats Screen - Premium player statistics with enhanced glass effects
+ * Stats Screen - Premium Player Statistics & Leaderboards (CrickPro MLS UI)
  * 
- * Design: Glass cards with accent glows, clean data visualization
- * All elements use frosted glass with backdrop blur
- * - Player comparison / head-to-head link
- * - Pull-to-refresh
+ * Design: High-contrast stat cards, role filter pills, search bar,
+ * leaderboard badges (🥇 #1, 🥈 #2, 🥉 #3), and head-to-head comparison link.
  */
-import { ScrollView, Text, View, TouchableOpacity, FlatList, RefreshControl, Platform } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, RefreshControl, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
@@ -14,15 +12,13 @@ import * as Haptics from "expo-haptics";
 import { PlayerStatsCard } from "@/components/player-stats-card";
 import { PlayerProfileHeader } from "@/components/player-profile-header";
 import { GlassCard } from "@/components/ui/glass-card";
-import { LiquidGlassOverlay } from "@/components/ui/liquid-glass-overlay";
 import { GlassSearchBar } from "@/components/ui/glass-search-bar";
-import { StatRow } from "@/components/ui/stat-row";
 import { GlassButton } from "@/components/ui/glass-button";
-import { trpc } from "@/lib/trpc";
-import { useAuthContext } from "@/lib/auth-context";
 import { useResponsive } from "@/hooks/use-responsive";
 import { useScrollPadding } from "@/hooks/use-scroll-padding";
 import { useThemeContext } from "@/lib/theme-provider";
+import { trpc } from "@/lib/trpc";
+import { useAuthContext } from "@/lib/auth-context";
 
 type MockPlayer = {
   id: string;
@@ -31,6 +27,7 @@ type MockPlayer = {
   team: string;
   jersey: number;
   matchesPlayed: number;
+  rank?: number;
   battingStats?: {
     runs: number;
     average: number;
@@ -53,121 +50,56 @@ export default function StatsScreen() {
   const router = useRouter();
   const r = useResponsive();
   const { colorScheme } = useThemeContext();
-  const isDark = colorScheme === "dark";
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "batsman" | "bowler" | "all-rounder">("all");
   const [refreshing, setRefreshing] = useState(false);
-  const { isAuthenticated } = useAuthContext();
-  const updateProfile = trpc.players.updateProfile.useMutation();
-
-  // Fetch real career stats from backend (enabled only when authenticated with a valid player ID)
-  const { data: careerStats, refetch: refetchCareerStats } = trpc.players.getCareerStats.useQuery(
-    { playerId: 0 },
-    // Query is disabled by default because we don't have a real player ID yet.
-    // When auth is fully wired to expose the player ID, change playerId and set enabled: true.
-    { enabled: false, retry: 1 },
-  );
 
   const [mockPlayers, setMockPlayers] = useState<MockPlayer[]>([
-    { id: "p1", name: "Rohit Sharma", role: "batsman", team: "Thunder Warriors", jersey: 45, matchesPlayed: 12,
-      battingStats: { runs: 580, average: 48.33, strikeRate: 142.5, fours: 28, sixes: 12, highestScore: 89 } },
-    { id: "p2", name: "Jasprit Bumrah", role: "bowler", team: "Thunder Warriors", jersey: 93, matchesPlayed: 12,
-      bowlingStats: { wickets: 18, runs: 245, economyRate: 6.8, average: 13.6, bestFigures: "4/28" } },
-    { id: "p3", name: "Virat Kohli", role: "all-rounder", team: "Phoenix Rising", jersey: 18, matchesPlayed: 12,
-      battingStats: { runs: 625, average: 52.08, strikeRate: 138.2, fours: 32, sixes: 8, highestScore: 95 },
-      bowlingStats: { wickets: 3, runs: 142, economyRate: 7.1, average: 47.33, bestFigures: "2/31" } },
+    { id: "p1", name: "Rohit Sharma", role: "batsman", team: "Thunder Warriors", jersey: 45, matchesPlayed: 14, rank: 1,
+      battingStats: { runs: 680, average: 52.3, strikeRate: 148.5, fours: 34, sixes: 18, highestScore: 98 } },
+    { id: "p2", name: "Virat Kohli", role: "batsman", team: "Phoenix Rising", jersey: 18, matchesPlayed: 14, rank: 2,
+      battingStats: { runs: 625, average: 52.08, strikeRate: 138.2, fours: 32, sixes: 10, highestScore: 95 } },
+    { id: "p3", name: "Jasprit Bumrah", role: "bowler", team: "Thunder Warriors", jersey: 93, matchesPlayed: 14, rank: 1,
+      bowlingStats: { wickets: 24, runs: 285, economyRate: 6.2, average: 11.8, bestFigures: "5/18" } },
+    { id: "p4", name: "Hardik Pandya", role: "all-rounder", team: "Thunder Warriors", jersey: 33, matchesPlayed: 12, rank: 3,
+      battingStats: { runs: 340, average: 34.0, strikeRate: 162.4, fours: 18, sixes: 14, highestScore: 62 },
+      bowlingStats: { wickets: 12, runs: 210, economyRate: 7.8, average: 17.5, bestFigures: "3/24" } },
+    { id: "p5", name: "Rashid Khan", role: "bowler", team: "Phoenix Rising", jersey: 19, matchesPlayed: 13, rank: 2,
+      bowlingStats: { wickets: 21, runs: 310, economyRate: 6.5, average: 14.7, bestFigures: "4/20" } },
   ]);
 
-  // Merge API career stats into mock players when available
-  const allPlayers = useMemo(() => {
-    if (!careerStats || careerStats.length === 0) return mockPlayers;
-    // Map backend stats to frontend player format when we have real stats
-    // For now, we use mock data supplemented with API stats
-    const apiPlayerMap = new Map<string, MockPlayer>();
-    for (const stat of careerStats as any[]) {
-      if (stat.playerId && stat.runsScored != null) {
-        const id = `api_${stat.playerId}`;
-        apiPlayerMap.set(id, {
-          id,
-          name: `Player #${stat.playerId}`,
-          role: "batsman",
-          team: "Your Team",
-          jersey: 0,
-          matchesPlayed: stat.matchesPlayed || 0,
-          battingStats: {
-            runs: stat.runsScored || 0,
-            average: (stat.average || 0) / 100,
-            strikeRate: (stat.strikeRate || 0) / 100,
-            fours: stat.fours || 0,
-            sixes: stat.sixes || 0,
-            highestScore: stat.highestScore || 0,
-          },
-        });
-      }
-    }
-    return [...mockPlayers, ...Array.from(apiPlayerMap.values())];
-  }, [careerStats, mockPlayers]);
-
-  const [roleFilter, setRoleFilter] = useState<"all" | "batsman" | "bowler" | "all-rounder">("all");
-
   const filteredPlayers = useMemo(() => {
-    let result = allPlayers;
+    let result = mockPlayers;
     if (roleFilter !== "all") {
       result = result.filter(p => p.role === roleFilter);
     }
     if (searchQuery.trim()) {
-      result = result.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      result = result.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.team.toLowerCase().includes(searchQuery.toLowerCase()));
     }
     return result;
-  }, [allPlayers, roleFilter, searchQuery]);
+  }, [mockPlayers, roleFilter, searchQuery]);
 
-  const handleAction = useCallback(async (cb: () => void) => {
+  const handleNav = useCallback(async (path: string) => {
     if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    cb();
-  }, []);
+    router.push(path as any);
+  }, [router]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    if (isAuthenticated) {
-      try { await refetchCareerStats(); } catch {}
-    }
     await new Promise(resolve => setTimeout(resolve, 800));
     setRefreshing(false);
-  }, [isAuthenticated, refetchCareerStats]);
+  }, []);
 
-  const handleNameSave = useCallback((playerId: string, newName: string) => {
-    const prevPlayers = mockPlayers;
-    setMockPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, name: newName } : p)));
-    if (isAuthenticated) {
-      updateProfile.mutate({ name: newName }, { onError: () => { setMockPlayers(prevPlayers); } });
-    }
-  }, [mockPlayers, isAuthenticated, updateProfile]);
-
-  const handleRoleSave = useCallback((playerId: string, newRole: MockPlayer["role"]) => {
-    const prevPlayers = mockPlayers;
-    setMockPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, role: newRole } : p)));
-    if (isAuthenticated) {
-      updateProfile.mutate({ role: newRole }, { onError: () => { setMockPlayers(prevPlayers); } });
-    }
-  }, [mockPlayers, isAuthenticated, updateProfile]);
-
-  const handleJerseySave = useCallback((playerId: string, newJersey: number) => {
-    const prevPlayers = mockPlayers;
-    setMockPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, jersey: newJersey } : p)));
-    if (isAuthenticated) {
-      updateProfile.mutate({ jerseyNumber: newJersey }, { onError: () => { setMockPlayers(prevPlayers); } });
-    }
-  }, [mockPlayers, isAuthenticated, updateProfile]);
-
-  // Player Detail View
+  // Detailed Player Profile View
   if (selectedPlayer) {
     const player = mockPlayers.find((p) => p.id === selectedPlayer);
     if (!player) return null;
 
     return (
       <ScreenContainer className="p-0" gradient glass>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={isDark ? "#FFF" : "#0066FF"} colors={["#0066FF"]} />}
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: paddingBottom + 24 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#10B981" />}
         >
           <PlayerProfileHeader
             playerName={player.name}
@@ -175,66 +107,56 @@ export default function StatsScreen() {
             teamName={player.team}
             jerseyNumber={player.jersey}
             matchesPlayed={player.matchesPlayed}
-            onNameSave={(newName) => handleNameSave(player.id, newName)}
-            onRoleSave={(newRole) => handleRoleSave(player.id, newRole)}
-            onJerseySave={(newJersey) => handleJerseySave(player.id, newJersey)}
           />
-          <View className="px-4 pt-5 gap-5 pb-20">
-            <TouchableOpacity onPress={() => handleAction(() => setSelectedPlayer(null))}>
-              <Text className="text-[#0066FF] font-bold text-xs uppercase tracking-wider">← Back to Stats</Text>
+
+          <View className="px-4 pt-4 gap-4">
+            <TouchableOpacity onPress={() => setSelectedPlayer(null)} className="self-start">
+              <Text className="text-emerald-400 font-extrabold text-xs uppercase tracking-wider">← Back to Player Roster</Text>
             </TouchableOpacity>
 
-            <GlassButton
-              title="Compare with Another Player"
-              variant="primary"
-              icon="⚔️"
-              onPress={() => handleAction(() => (router as any).push("/head-to-head"))}
-            />
+            <TouchableOpacity
+              onPress={() => handleNav("/head-to-head")}
+              className="bg-emerald-500 py-3 rounded-xl flex-row items-center justify-center gap-2"
+            >
+              <Text className="text-black text-sm font-extrabold">⚔️ Compare Player Head-to-Head</Text>
+            </TouchableOpacity>
 
+            {/* Batting Stats Card */}
             {player.battingStats && (
-              <GlassCard intensity="high" padding="lg" radius="xl" className="gap-4" blurAmount={24} staggerIndex={0}>
-                <LiquidGlassOverlay variant="sheen" speed={0.6} intensity={0.4} />
-                <Text className="text-base sm:text-lg font-extrabold text-foreground tracking-tight uppercase">🏏 Batting Statistics</Text>
-                <View className="gap-3">
+              <GlassCard intensity="heavy" padding="lg" radius="xl" className="bg-[#121622] border-white/15 gap-3">
+                <Text className="text-base font-black text-white uppercase tracking-wider">🏏 Batting Statistics</Text>
+                <View className="flex-row flex-wrap gap-3 pt-1">
                   {[
-                    { label: "Total Runs", value: player.battingStats.runs, color: "#0066FF" },
-                    { label: "Average", value: isFinite(player.battingStats.average) ? player.battingStats.average.toFixed(2) : "0.00", color: "#34C759" },
-                    { label: "Strike Rate", value: isFinite(player.battingStats.strikeRate) ? player.battingStats.strikeRate.toFixed(1) : "0.0", color: "#FF9F0A" },
-                    { label: "Fours", value: player.battingStats.fours, color: "#5E5CE6" },
-                    { label: "Sixes", value: player.battingStats.sixes, color: "#FF3B30" },
-                    { label: "Highest Score", value: player.battingStats.highestScore, color: "#0066FF" },
-                  ].map((stat) => (
-                    <StatRow
-                      key={stat.label}
-                      label={stat.label}
-                      value={stat.value}
-                      valueColor={stat.color}
-                      valueSize="base"
-                    />
+                    { label: "RUNS", val: player.battingStats.runs, color: "text-emerald-400" },
+                    { label: "AVG", val: player.battingStats.average, color: "text-blue-400" },
+                    { label: "STRIKE RATE", val: player.battingStats.strikeRate, color: "text-amber-400" },
+                    { label: "HIGHEST", val: player.battingStats.highestScore, color: "text-purple-400" },
+                    { label: "4s / 6s", val: `${player.battingStats.fours} / ${player.battingStats.sixes}`, color: "text-white" },
+                  ].map((s) => (
+                    <View key={s.label} className="w-[47%] bg-black/40 p-3 rounded-xl border border-white/5 gap-0.5">
+                      <Text className="text-[10px] font-extrabold text-slate-400">{s.label}</Text>
+                      <Text className={`text-xl font-black ${s.color}`}>{s.val}</Text>
+                    </View>
                   ))}
                 </View>
               </GlassCard>
             )}
 
+            {/* Bowling Stats Card */}
             {player.bowlingStats && (
-              <GlassCard intensity="high" padding="lg" radius="xl" className="gap-4" blurAmount={24} staggerIndex={1}>
-                <LiquidGlassOverlay variant="sheen" speed={0.6} intensity={0.4} />
-                <Text className="text-base sm:text-lg font-extrabold text-foreground tracking-tight uppercase">⚾ Bowling Statistics</Text>
-                <View className="gap-3">
+              <GlassCard intensity="heavy" padding="lg" radius="xl" className="bg-[#121622] border-white/15 gap-3">
+                <Text className="text-base font-black text-white uppercase tracking-wider">⚾ Bowling Statistics</Text>
+                <View className="flex-row flex-wrap gap-3 pt-1">
                   {[
-                    { label: "Wickets Taken", value: player.bowlingStats.wickets, color: "#FF3B30" },
-                    { label: "Runs Conceded", value: player.bowlingStats.runs, color: "#86868B" },
-                    { label: "Economy Rate", value: isFinite(player.bowlingStats.economyRate) ? player.bowlingStats.economyRate.toFixed(2) : "0.00", color: "#34C759" },
-                    { label: "Bowling Average", value: isFinite(player.bowlingStats.average) ? player.bowlingStats.average.toFixed(2) : "0.00", color: "#0066FF" },
-                    { label: "Best Figures", value: player.bowlingStats.bestFigures, color: "#FF9F0A" },
-                  ].map((stat) => (
-                    <StatRow
-                      key={stat.label}
-                      label={stat.label}
-                      value={stat.value}
-                      valueColor={stat.color}
-                      valueSize="base"
-                    />
+                    { label: "WICKETS", val: player.bowlingStats.wickets, color: "text-amber-400" },
+                    { label: "ECONOMY", val: player.bowlingStats.economyRate, color: "text-emerald-400" },
+                    { label: "AVERAGE", val: player.bowlingStats.average, color: "text-blue-400" },
+                    { label: "BEST FIGURES", val: player.bowlingStats.bestFigures, color: "text-purple-400" },
+                  ].map((s) => (
+                    <View key={s.label} className="w-[47%] bg-black/40 p-3 rounded-xl border border-white/5 gap-0.5">
+                      <Text className="text-[10px] font-extrabold text-slate-400">{s.label}</Text>
+                      <Text className={`text-xl font-black ${s.color}`}>{s.val}</Text>
+                    </View>
                   ))}
                 </View>
               </GlassCard>
@@ -245,95 +167,122 @@ export default function StatsScreen() {
     );
   }
 
-  // Main Stats List
   return (
-    <ScreenContainer gradient glass>
-      <ScrollView style={{ flex: 1, width: "100%", height: "100%" }} contentContainerStyle={{ flexGrow: 1, minHeight: "100%", paddingBottom }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={isDark ? "#FFF" : "#0066FF"} colors={["#0066FF"]} />}
+    <ScreenContainer gradient>
+      <ScrollView
+        style={{ flex: 1, width: "100%" }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: paddingBottom + 24 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#10B981" />}
       >
-        <View className={`flex-1 ${r.isPhone ? "gap-4" : "gap-5"} p-5`}>
-          <View className="pt-2 pb-1">
-            <Text className={`${r.isPhone ? "text-2xl sm:text-3xl" : "text-4xl"} font-extrabold text-foreground tracking-tight`}>Statistics</Text>
-            <Text className={`${r.isPhone ? "text-xs sm:text-sm" : "text-base"} font-semibold text-muted mt-0.5`}>Player career stats and achievements</Text>
+        <View className="flex-1 gap-5 pt-2">
+          
+          {/* HEADER */}
+          <View className="flex-row items-center justify-between px-1">
+            <View className="gap-0.5">
+              <Text className="text-3xl font-black text-white tracking-tight">Player Roster</Text>
+              <Text className="text-xs font-semibold text-slate-400">Career Statistics & Leaderboards</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => handleNav("/head-to-head")}
+              className="bg-emerald-500/20 border border-emerald-500/40 rounded-xl px-3 py-1.5 flex-row items-center gap-1 active:opacity-80"
+            >
+              <Text className="text-emerald-400 text-xs font-black">⚔️ Compare</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Head-to-Head CTA */}
-          <GlassCard intensity="high" glowColor="#10B981" padding="md" radius="xl" gradientBorder className="flex-row items-center gap-3"
-            onPress={() => handleAction(() => (router as any).push("/head-to-head"))} blurAmount={24}
-          >
-            <View className="w-10 h-10 rounded-full bg-[#10B981]/15 items-center justify-center">
-              <Text className="text-xl">⚔️</Text>
-            </View>
-            <View className="flex-1">
-              <Text className="text-xs sm:text-sm font-bold text-[#F9FAFB]">Compare Players</Text>
-              <Text className="text-[10px] font-semibold text-[#9CA3AF]">Head-to-head statistics comparison</Text>
-            </View>
-            <Text className="text-base text-[#9CA3AF]">›</Text>
-          </GlassCard>
+          {/* SEARCH BAR */}
+          <GlassSearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search player name or team..."
+          />
 
-          {/* Glass Search Bar */}
-          <GlassSearchBar placeholder="Search players..." value={searchQuery} onChangeText={setSearchQuery} />
-
-          {/* Mobile Horizontal Role Filter Bar */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {/* ROLE FILTER PILLS */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}>
             {[
-              { id: "all", label: "All Players" },
-              { id: "batsman", label: "Batsmen" },
-              { id: "bowler", label: "Bowlers" },
-              { id: "all-rounder", label: "All-Rounders" },
+              { id: "all", label: "👥 All Players" },
+              { id: "batsman", label: "🏏 Batsmen" },
+              { id: "bowler", label: "⚾ Bowlers" },
+              { id: "all-rounder", label: "⚡ All-Rounders" },
             ].map((tab) => {
               const active = roleFilter === tab.id;
               return (
                 <TouchableOpacity
                   key={tab.id}
-                  onPress={() => handleAction(() => setRoleFilter(tab.id as any))}
-                  className={`px-3.5 py-1.5 rounded-full border ${
-                    active ? "bg-[#10B981] border-[#10B981]" : "bg-[#11201A] border-white/10"
-                  }`}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setRoleFilter(tab.id as any);
+                  }}
+                  className={`px-4 py-2 rounded-xl border ${active ? 'bg-emerald-500 border-emerald-400' : 'bg-white/5 border-white/10'}`}
                 >
-                  <Text className={`text-[11px] font-bold ${active ? "text-[#06120E]" : "text-[#9CA3AF]"}`}>
-                    {tab.label}
-                  </Text>
+                  <Text className={`text-xs font-black ${active ? 'text-black' : 'text-slate-300'}`}>{tab.label}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          <GlassCard intensity="high" glowColor="#10B981" padding="xl" radius="xl" className="items-center gap-2" blurAmount={24} staggerIndex={0}>
-            <LiquidGlassOverlay color="#10B981" variant="sheen" speed={0.7} intensity={0.5} />
-            <View className="items-center gap-0.5">
-              <Text className="text-4xl sm:text-5xl font-black text-[#10B981] tracking-tight tabular-nums">{filteredPlayers.length}</Text>
-              <Text className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Players in Roster</Text>
-            </View>
-          </GlassCard>
-
+          {/* PLAYER CARDS LIST */}
           <View className="gap-3">
-            <Text className="text-base sm:text-lg font-extrabold text-foreground tracking-tight uppercase">Top Performers</Text>
-            <FlatList
-              data={filteredPlayers}
-              renderItem={({ item, index }) => (
-                <PlayerStatsCard
-                  playerId={item.id}
-                  playerName={item.name}
-                  role={item.role}
-                  matchesPlayed={item.matchesPlayed}
-                  battingStats={item.battingStats}
-                  bowlingStats={item.bowlingStats}
-                  onPress={() => handleAction(() => setSelectedPlayer(item.id))}
-                  staggerIndex={1 + index}
-                />
-              )}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              contentContainerStyle={{ gap: 12 }}
-              ListEmptyComponent={
-                <GlassCard intensity="subtle" padding="xl" radius="xl" className="items-center gap-2" blurAmount={16}>
-                  <Text className="text-sm font-semibold text-muted">No players found</Text>
-                  <Text className="text-xs text-muted">Try a different search or role filter</Text>
-                </GlassCard>
-              }
-            />
+            {filteredPlayers.map((p, idx) => (
+              <GlassCard
+                key={p.id}
+                intensity="heavy"
+                radius="xl"
+                padding="md"
+                className="bg-[#121622]/90 border-white/15 gap-3"
+                onPress={() => setSelectedPlayer(p.id)}
+              >
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-3">
+                    {/* Rank Badge */}
+                    <View className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/30 items-center justify-center">
+                      <Text className="text-xs font-black text-emerald-400">
+                        {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
+                      </Text>
+                    </View>
+                    <View>
+                      <Text className="text-base font-black text-white">{p.name}</Text>
+                      <Text className="text-[11px] font-semibold text-slate-400">{p.team} • #{p.jersey} • {p.role.toUpperCase()}</Text>
+                    </View>
+                  </View>
+
+                  <View className="bg-white/10 px-2.5 py-1 rounded-md">
+                    <Text className="text-[10px] font-extrabold text-slate-300">{p.matchesPlayed} M</Text>
+                  </View>
+                </View>
+
+                {/* Key Stat Badges */}
+                <View className="flex-row items-center justify-between bg-black/40 p-2.5 rounded-xl border border-white/5">
+                  {p.battingStats && (
+                    <View>
+                      <Text className="text-[9px] font-extrabold text-slate-400">RUNS</Text>
+                      <Text className="text-base font-black text-emerald-400">{p.battingStats.runs}</Text>
+                    </View>
+                  )}
+                  {p.battingStats && (
+                    <View>
+                      <Text className="text-[9px] font-extrabold text-slate-400">STRIKE RATE</Text>
+                      <Text className="text-base font-black text-amber-400">{p.battingStats.strikeRate}</Text>
+                    </View>
+                  )}
+                  {p.bowlingStats && (
+                    <View>
+                      <Text className="text-[9px] font-extrabold text-slate-400">WICKETS</Text>
+                      <Text className="text-base font-black text-blue-400">{p.bowlingStats.wickets}</Text>
+                    </View>
+                  )}
+                  {p.bowlingStats && (
+                    <View>
+                      <Text className="text-[9px] font-extrabold text-slate-400">ECON</Text>
+                      <Text className="text-base font-black text-purple-400">{p.bowlingStats.economyRate}</Text>
+                    </View>
+                  )}
+                </View>
+              </GlassCard>
+            ))}
           </View>
+
         </View>
       </ScrollView>
     </ScreenContainer>

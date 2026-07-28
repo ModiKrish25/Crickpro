@@ -34,7 +34,7 @@ import { WebScreenFix } from "@/components/web-screen-fix";
 import { usePreloaderManager } from "@/hooks/use-preloader-manager";
 import { useAuthContext } from "@/lib/auth-context";
 import { ClerkProvider } from "@clerk/clerk-expo";
-import { CLERK_PUBLISHABLE_KEY, tokenCache } from "@/constants/clerk";
+import { CLERK_PUBLISHABLE_KEY, IS_CLERK_CONFIGURED, tokenCache } from "@/constants/clerk";
 import * as SplashScreen from "expo-splash-screen";
 
 
@@ -223,14 +223,23 @@ export default function RootLayout() {
       }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+          {IS_CLERK_CONFIGURED ? (
+            <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+              <AuthProvider>
+                <RootLayoutWithPreloader />
+                {/* Fix React Navigation screen transform bug on web */}
+                <WebScreenFix />
+                <StatusBar style="auto" />
+              </AuthProvider>
+            </ClerkProvider>
+          ) : (
             <AuthProvider>
               <RootLayoutWithPreloader />
               {/* Fix React Navigation screen transform bug on web */}
               <WebScreenFix />
               <StatusBar style="auto" />
             </AuthProvider>
-          </ClerkProvider>
+          )}
         </QueryClientProvider>
       </trpc.Provider>
 
