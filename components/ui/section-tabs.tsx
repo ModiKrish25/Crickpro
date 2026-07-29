@@ -68,13 +68,13 @@ export function SectionTabs({
               key={tab.id}
               className={cn(
                 "flex-row items-center rounded-xl px-4 py-2.5",
-                variant === "pill" && isSelected && "bg-[#0066FF]",
-                variant === "pill" && !isSelected && "bg-white/50 dark:bg-white/[0.05]",
+                variant === "pill" && isSelected && "bg-[#10B981]",
+                variant === "pill" && !isSelected && "bg-[#0B1712] border border-[#142820]",
                 variant === "underline" && "border-b-2 rounded-none px-3",
-                variant === "underline" && isSelected && "border-[#0066FF]",
+                variant === "underline" && isSelected && "border-[#10B981]",
                 variant === "underline" && !isSelected && "border-transparent",
-                variant === "glass" && isSelected && "bg-white/60 dark:bg-white/[0.1] border border-white/50 dark:border-white/10",
-                variant === "glass" && !isSelected && "bg-transparent",
+                variant === "glass" && isSelected && "bg-[#10B981] text-[#050B08]",
+                variant === "glass" && !isSelected && "bg-[#0B1712] border border-[#142820]",
               )}
               onPress={() => handleSelect(tab.id)}
             >

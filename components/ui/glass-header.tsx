@@ -65,9 +65,9 @@ export function GlassHeader({
   const s = sizeStyles[size];
 
   const glassBg = {
-    subtle: isDark ? "bg-white/[0.04]" : "bg-white/40",
-    medium: isDark ? "bg-white/[0.06]" : "bg-white/55",
-    high: isDark ? "bg-white/[0.10]" : "bg-white/75",
+    subtle: "bg-[#0B1511]",
+    medium: "bg-[#09120E]",
+    high: "bg-[#070E0B]",
   };
 
   // Frosted glass style

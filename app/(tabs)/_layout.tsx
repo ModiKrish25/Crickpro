@@ -54,17 +54,13 @@ export default function TabLayout() {
     paddingBottom: 0,
     paddingHorizontal: cfg.horizontalPadding,
     borderRadius: 32,
-    // Dark Charcoal Frosted Glass background matching iOS 18
-    backgroundColor: isDark
-      ? "rgba(28, 28, 30, 0.88)"
-      : "rgba(255, 255, 255, 0.90)",
+    // Dark Emerald Charcoal Frosted Glass matching exact user theme
+    backgroundColor: "rgba(7, 14, 11, 0.92)",
     borderWidth: 1,
-    borderColor: isDark
-      ? "rgba(255, 255, 255, 0.14)"
-      : "rgba(0, 0, 0, 0.08)",
-    shadowColor: "#000",
+    borderColor: "rgba(16, 185, 129, 0.20)",
+    shadowColor: "#10B981",
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: isDark ? 0.55 : 0.15,
+    shadowOpacity: 0.25,
     shadowRadius: 32,
     elevation: 20,
     ...(Platform.OS === "web" ? {
@@ -79,8 +75,8 @@ export default function TabLayout() {
       <Tabs
       detachInactiveScreens={false}
       screenOptions={{
-        tabBarActiveTintColor: "#FF9F0A",
-        tabBarInactiveTintColor: isDark ? "rgba(235, 235, 245, 0.6)" : "rgba(60, 60, 67, 0.6)",
+        tabBarActiveTintColor: "#10B981",
+        tabBarInactiveTintColor: "rgba(203, 213, 225, 0.6)",
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarHideOnKeyboard: true,
@@ -110,8 +106,8 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
-              <IconSymbol size={focused ? 20 : 22} name="house.fill" color={focused ? "#FFFFFF" : color} />
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-[#10B981] shadow-lg shadow-emerald-500/40" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="house.fill" color={focused ? "#050B08" : color} />
             </View>
           ),
         }}
@@ -122,8 +118,8 @@ export default function TabLayout() {
         options={{
           title: "Matches",
           tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
-              <IconSymbol size={focused ? 20 : 22} name="trophy.fill" color={focused ? "#FFFFFF" : color} />
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-[#10B981] shadow-lg shadow-emerald-500/40" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="trophy.fill" color={focused ? "#050B08" : color} />
             </View>
           ),
         }}
@@ -136,15 +132,15 @@ export default function TabLayout() {
           title: "+ Score",
           tabBarIcon: ({ color, focused }) => (
             <View className="items-center justify-center -mt-5">
-              <View className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 items-center justify-center shadow-lg shadow-indigo-500/60 border-2 border-[#0B0E17] active:scale-95 transition-transform">
-                <Text className="text-white text-xl font-black" style={{ lineHeight: 22 }}>+</Text>
+              <View className="w-12 h-12 rounded-full bg-[#10B981] items-center justify-center shadow-xl shadow-emerald-500/50 border-2 border-[#050B08] active:scale-95 transition-transform">
+                <Text className="text-[#050B08] text-xl font-black" style={{ lineHeight: 22 }}>+</Text>
               </View>
             </View>
           ),
           tabBarLabelStyle: {
             fontSize: 10,
             fontWeight: "900",
-            color: "#6366F1",
+            color: "#10B981",
             marginTop: 4,
           },
         }}
@@ -155,8 +151,8 @@ export default function TabLayout() {
         options={{
           title: "Community",
           tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
-              <IconSymbol size={focused ? 20 : 22} name="people.fill" color={focused ? "#FFFFFF" : color} />
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-[#10B981] shadow-lg shadow-emerald-500/40" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="people.fill" color={focused ? "#050B08" : color} />
             </View>
           ),
         }}
@@ -167,8 +163,8 @@ export default function TabLayout() {
         options={{
           title: "Stats",
           tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
-              <IconSymbol size={focused ? 20 : 22} name="chart.bar.fill" color={focused ? "#FFFFFF" : color} />
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-[#10B981] shadow-lg shadow-emerald-500/40" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="chart.bar.fill" color={focused ? "#050B08" : color} />
             </View>
           ),
         }}
@@ -179,8 +175,8 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/50" : "px-2 py-0.5"}`}>
-              <IconSymbol size={focused ? 20 : 22} name="person.fill" color={focused ? "#FFFFFF" : color} />
+            <View className={`items-center justify-center ${focused ? "w-10 h-10 rounded-full bg-[#10B981] shadow-lg shadow-emerald-500/40" : "px-2 py-0.5"}`}>
+              <IconSymbol size={focused ? 20 : 22} name="person.fill" color={focused ? "#050B08" : color} />
             </View>
           ),
         }}

@@ -42,13 +42,13 @@ const VARIANT_STYLES: Record<GlassButtonVariant, {
   background?: any;
 }> = {
   primary: {
-    container: "bg-[#0066FF] rounded-2xl items-center",
-    text: "text-white font-bold",
+    container: "bg-[#10B981] rounded-2xl items-center",
+    text: "text-[#050B08] font-black",
     shadow: true,
   },
   secondary: {
-    container: "bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10 rounded-2xl items-center",
-    text: "text-foreground font-semibold",
+    container: "bg-[#0C1914] border border-[#10B981]/30 rounded-2xl items-center",
+    text: "text-white font-bold",
     background: Platform.OS === "web" ? {
       backdropFilter: "blur(12px) saturate(180%)",
       WebkitBackdropFilter: "blur(12px) saturate(180%)",

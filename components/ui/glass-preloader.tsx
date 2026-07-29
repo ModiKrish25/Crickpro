@@ -1,42 +1,28 @@
 /**
- * GlassPreloader - Premium preloader/loading screen with cricket-themed animation
- * 
- * Design: Apple-inspired glassmorphism with animated cricket ball, 
- * shimmering text effects, and ambient glow particles
+ * GlassPreloader - Premium preloader with high-energy animated cricket graphics
  * 
  * Features:
- * - Animated cricket ball with spinning seam
- * - Pulsing glow ring
- * - Loading text with shimmer animation
- * - Ambient particles
- * - Spring entrance/exit animations
- * - Dark/Light mode support
+ * - Animated spinning & bouncing red cricket ball with white seam
+ * - Pulsing emerald and blue glow rings
+ * - Shimmering loading message with animated progress bar
+ * - Multi-platform support (Web CSS Keyframes + Reanimated)
  */
-import { View, Text, Platform } from "react-native";
-import { useResponsive } from "@/hooks/use-responsive";
+import React, { useEffect } from "react";
+import { View, Text, Platform, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withTiming,
   withSequence,
-  withDelay,
   Easing,
   interpolate,
-  FadeIn,
-  FadeOut,
 } from "react-native-reanimated";
-import { useEffect, useMemo } from "react";
-import { useThemeContext } from "@/lib/theme-provider";
 
 interface GlassPreloaderProps {
-  /** Optional message to display under the loading animation */
   message?: string;
-  /** Size variant */
   size?: "sm" | "md" | "lg";
-  /** Whether the preloader is visible */
   visible?: boolean;
-  /** Show as fullscreen overlay */
   fullscreen?: boolean;
 }
 
@@ -50,370 +36,225 @@ const MESSAGES = [
 ];
 
 export function GlassPreloader({
-  message,
+  message = "Setting up the pitch...",
   size = "md",
   visible = true,
   fullscreen = false,
 }: GlassPreloaderProps) {
-  const { colorScheme } = useThemeContext();
-  const responsive = useResponsive();
-  const isDark = colorScheme === "dark";
-
-  // Ball rotation animation
-  const rotation = useSharedValue(0);
-  // Ball bounce animation
+  // Shared values for continuous animations
+  const spin = useSharedValue(0);
   const bounce = useSharedValue(0);
-  // Ring pulse animation
-  const ringScale = useSharedValue(1);
-  const ringOpacity = useSharedValue(0.3);
-  // Message shimmer
-  const shimmerPosition = useSharedValue(-1);
-  // Dot animations
-  const dot1 = useSharedValue(0.5);
-  const dot2 = useSharedValue(0.5);
-  const dot3 = useSharedValue(0.5);
-  // Particle animations
-  const particle1 = useSharedValue(0);
-  const particle2 = useSharedValue(0);
+  const pulse = useSharedValue(1);
+  const progress = useSharedValue(0);
 
   useEffect(() => {
     if (!visible) return;
 
-    // Continuous rotation
-    rotation.value = withRepeat(
-      withTiming(360, {
-        duration: 3000,
-        easing: Easing.linear,
-      }),
+    // Ball spin
+    spin.value = withRepeat(
+      withTiming(360, { duration: 1800, easing: Easing.linear }),
       -1,
-      false,
+      false
     );
 
-    // Gentle bounce
+    // Ball bounce
     bounce.value = withRepeat(
       withSequence(
-        withTiming(-8, { duration: 600, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0, { duration: 600, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-12, { duration: 450, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: 450, easing: Easing.in(Easing.quad) })
       ),
       -1,
-      true,
+      true
     );
 
-    // Ring pulse
-    ringScale.value = withRepeat(
+    // Glow pulse
+    pulse.value = withRepeat(
       withSequence(
-        withTiming(1.3, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
-        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.25, { duration: 900, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) })
       ),
       -1,
-      true,
-    );
-    ringOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.6, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.1, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1,
-      true,
+      true
     );
 
-    // Shimmer effect
-    shimmerPosition.value = withRepeat(
-      withTiming(1.5, {
-        duration: 2500,
-        easing: Easing.inOut(Easing.sin),
-      }),
-      -1,
-      false,
-    );
-
-    // Loading dots staggered pulse
-    dot1.value = withRepeat(
+    // Loading bar fill
+    progress.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 600, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.3, { duration: 600, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 200, easing: Easing.linear })
       ),
       -1,
-      true,
-    );
-    dot2.value = withRepeat(
-      withSequence(
-        withDelay(200, withTiming(1, { duration: 600, easing: Easing.inOut(Easing.sin) })),
-        withTiming(0.3, { duration: 600, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1,
-      true,
-    );
-    dot3.value = withRepeat(
-      withSequence(
-        withDelay(400, withTiming(1, { duration: 600, easing: Easing.inOut(Easing.sin) })),
-        withTiming(0.3, { duration: 600, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1,
-      true,
-    );
-
-    // Particle drift
-    particle1.value = withRepeat(
-      withTiming(1, { duration: 4000, easing: Easing.linear }),
-      -1,
-      false,
-    );
-    particle2.value = withRepeat(
-      withTiming(1, { duration: 5000, easing: Easing.linear }),
-      -1,
-      false,
+      false
     );
   }, [visible]);
 
-  const dot1Style = useAnimatedStyle(() => ({ opacity: dot1.value, transform: [{ scale: dot1.value }] }));
-  const dot2Style = useAnimatedStyle(() => ({ opacity: dot2.value, transform: [{ scale: dot2.value }] }));
-  const dot3Style = useAnimatedStyle(() => ({ opacity: dot3.value, transform: [{ scale: dot3.value }] }));
-
-  const ballRotationStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.value}deg` }],
   }));
 
-  const ballBounceStyle = useAnimatedStyle(() => ({
+  const bounceStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: bounce.value }],
   }));
 
-  const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ringScale.value }],
-    opacity: ringOpacity.value,
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+    opacity: interpolate(pulse.value, [1, 1.25], [0.6, 0.2]),
   }));
 
-  const shimmerStyle = useAnimatedStyle(() => ({
-    transform: [{
-      translateX: interpolate(shimmerPosition.value, [-1, 1.5], [-200, 400]),
-    }],
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`,
   }));
-
-  const particle1Style = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(particle1.value, [0, 1], [0, -30]) },
-      { translateX: interpolate(particle1.value, [0, 1], [0, 15]) },
-    ],
-    opacity: interpolate(particle1.value, [0, 0.5, 1], [0.2, 0.6, 0.2]),
-  }));
-
-  const particle2Style = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(particle2.value, [0, 1], [0, -25]) },
-      { translateX: interpolate(particle2.value, [0, 1], [0, -12]) },
-    ],
-    opacity: interpolate(particle2.value, [0, 0.5, 1], [0.15, 0.5, 0.15]),
-  }));
-
-  // Memoize the loading message to prevent flicker on re-renders
-  const loadingMessage = useMemo(
-    () => message || MESSAGES[Math.floor(Math.random() * MESSAGES.length)],
-    [message]
-  );
-
-  // Size mappings
-  const ballSizes = { sm: 40, md: 56, lg: 72 };
-  const ballSize = ballSizes[size];
-  const messageFontSize = { sm: 10, md: 12, lg: 14 }[size];
 
   if (!visible) return null;
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(400)}
-      exiting={FadeOut.duration(300)}
-      className={`items-center justify-center ${fullscreen ? "absolute inset-0" : ""}`}
-      style={fullscreen ? {
-        zIndex: 9999,
-        width: responsive.width,
-        height: responsive.height,
-      } : {}}
+    <View
+      style={fullscreen ? [styles.fullscreenOverlay, Platform.OS === "web" ? { position: "fixed" as any } : {}] : styles.inlineContainer}
     >
-      {/* Background blur overlay for fullscreen */}
-      {fullscreen && (
-        <View
-          className="absolute inset-0"
-          style={{
-            backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.7)",
-            ...(Platform.OS === "web" ? {
-              backdropFilter: "blur(24px) saturate(180%)",
-              WebkitBackdropFilter: "blur(24px) saturate(180%)",
-            } : {}),
-          }}
-        />
-      )}
+      {/* Dark Frosted Glass Container */}
+      <View style={styles.glassCard}>
+        {/* Animated Cricket Ball & Ring Area */}
+        <View style={styles.animationArea}>
+          {/* Pulsing Outer Emerald Ring */}
+          <Animated.View style={[styles.pulseRing, pulseStyle]} />
 
-      {/* Glass container */}
-      <View
-        className={`items-center gap-4 ${fullscreen ? "" : ""}`}
-        style={{
-          backgroundColor: isDark ? "rgba(20,20,22,0.8)" : "rgba(255,255,255,0.8)",
-          borderRadius: 24,
-          borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.5)",
-          padding: size === "lg" ? 40 : size === "sm" ? 20 : 32,
-          ...(Platform.OS === "web" ? {
-            backdropFilter: "blur(20px) saturate(180%)",
-            WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          } : {}),
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: isDark ? 0.3 : 0.1,
-          shadowRadius: 24,
-          elevation: 12,
-        }}
-      >
-        {/* Animated Cricket Ball */}
-        <View className="items-center justify-center" style={{ width: ballSize + 40, height: ballSize + 40 }}>
-          {/* Pulsing ring */}
-          <Animated.View
-            className="absolute rounded-full"
-            style={[
-              ringStyle,
-              {
-                width: ballSize + 32,
-                height: ballSize + 32,
-                borderWidth: 2,
-                borderColor: "#0066FF",
-                backgroundColor: "transparent",
-              },
-            ]}
-          />
-          
-          {/* Second ring (delayed) */}
-          <Animated.View
-            className="absolute rounded-full"
-            style={[
-              {
-                width: ballSize + 16,
-                height: ballSize + 16,
-                borderWidth: 1.5,
-                borderColor: "#34C759",
-                opacity: 0.15,
-                transform: [{ scale: 1.1 }],
-              },
-            ]}
-            pointerEvents="none"
-          />
-
-          {/* Cricket ball */}
-          <Animated.View style={[ballBounceStyle]} className="items-center justify-center">
-            <Animated.View
-              className="items-center justify-center rounded-full"
-              style={[
-                ballRotationStyle,
-                {
-                  width: ballSize,
-                  height: ballSize,
-                  backgroundColor: "#CC0000",
-                  shadowColor: "#CC0000",
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 8,
-                  elevation: 8,
-                },
-              ]}
-            >
-              {/* Ball seam */}
-              <View
-                className="absolute w-full"
-                style={{
-                  height: 2,
-                  backgroundColor: "#FFFFFF",
-                  opacity: 0.6,
-                  transform: [{ rotate: "0deg" }],
-                }}
-              />
-              <View
-                className="absolute w-full"
-                style={{
-                  height: 2,
-                  backgroundColor: "#FFFFFF",
-                  opacity: 0.6,
-                  transform: [{ rotate: "90deg" }],
-                }}
-              />
-              {/* Ball center dot */}
-              <View
-                className="rounded-full"
-                style={{
-                  width: ballSize * 0.15,
-                  height: ballSize * 0.15,
-                  backgroundColor: "#FFFFFF",
-                  opacity: 0.3,
-                }}
-              />
+          {/* Bouncing & Spinning Red Cricket Ball */}
+          <Animated.View style={[bounceStyle]}>
+            <Animated.View style={[styles.cricketBall, spinStyle]}>
+              {/* Ball Seam Lines */}
+              <View style={styles.ballSeamHorizontal} />
+              <View style={styles.ballSeamVertical} />
+              <View style={styles.ballCoreDot} />
             </Animated.View>
           </Animated.View>
         </View>
 
-        {/* Message with shimmer */}
-        <View className="overflow-hidden" style={{ borderRadius: 6 }}>
-          <Text
-            className="font-semibold text-center"
-            style={{
-              fontSize: messageFontSize,
-              color: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)",
-            }}
-          >
-            {loadingMessage}
-          </Text>
-          {/* Shimmer line */}
-          <Animated.View
-            className="absolute bottom-0 h-[2px]"
-            style={[
-              shimmerStyle,
-              {
-                width: 80,
-                backgroundColor: "#0066FF",
-                opacity: 0.4,
-                borderRadius: 1,
-              },
-            ]}
-          />
+        {/* Loading Message */}
+        <View style={styles.textContainer}>
+          <Text style={styles.messageText}>{message}</Text>
+          <Text style={styles.brandSubtext}>CRICKPRO ENGINE</Text>
         </View>
 
-        {/* Loading dots */}
-        <View className="flex-row gap-1.5">
-          <Animated.View className="rounded-full" style={[{ width: 6, height: 6, backgroundColor: "#0066FF" }, dot1Style]} />
-          <Animated.View className="rounded-full" style={[{ width: 6, height: 6, backgroundColor: "#0066FF" }, dot2Style]} />
-          <Animated.View className="rounded-full" style={[{ width: 6, height: 6, backgroundColor: "#0066FF" }, dot3Style]} />
+        {/* Animated Emerald Progress Bar */}
+        <View style={styles.progressBarBackground}>
+          <Animated.View style={[styles.progressBarFill, progressStyle]} />
         </View>
       </View>
-
-      {/* Ambient particles */}
-      {fullscreen && (
-        <>
-          <Animated.View
-            className="absolute rounded-full"
-            style={[
-              particle1Style,
-              {
-                width: 4,
-                height: 4,
-                backgroundColor: "#0066FF",
-                opacity: 0.3,
-                top: "35%",
-                right: "25%",
-              },
-            ]}
-          />
-          <Animated.View
-            className="absolute rounded-full"
-            style={[
-              particle2Style,
-              {
-                width: 3,
-                height: 3,
-                backgroundColor: "#34C759",
-                opacity: 0.25,
-                top: "55%",
-                left: "20%",
-              },
-            ]}
-          />
-        </>
-      )}
-    </Animated.View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  fullscreenOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(5, 11, 8, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 99999,
+  },
+  inlineContainer: {
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glassCard: {
+    backgroundColor: "#0B1511",
+    borderWidth: 1.5,
+    borderColor: "rgba(16, 185, 129, 0.3)",
+    borderRadius: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 24,
+    alignItems: "center",
+    minWidth: 260,
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  animationArea: {
+    width: 80,
+    height: 80,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  pulseRing: {
+    position: "absolute",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    borderColor: "#10B981",
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
+  },
+  cricketBall: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#DC2626",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#B91C1C",
+    shadowColor: "#EF4444",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  ballSeamHorizontal: {
+    position: "absolute",
+    width: "100%",
+    height: 2,
+    backgroundColor: "#FFFFFF",
+    opacity: 0.8,
+  },
+  ballSeamVertical: {
+    position: "absolute",
+    height: "100%",
+    width: 2,
+    backgroundColor: "#FFFFFF",
+    opacity: 0.8,
+  },
+  ballCoreDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FFFFFF",
+    opacity: 0.4,
+  },
+  textContainer: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  messageText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  brandSubtext: {
+    color: "#10B981",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    marginTop: 4,
+  },
+  progressBarBackground: {
+    width: "100%",
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#10B981",
+    borderRadius: 2,
+  },
+});

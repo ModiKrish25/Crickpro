@@ -27,6 +27,7 @@ import * as Haptics from "expo-haptics";
 import { BoundaryCelebration } from "./animations/boundary-celebration";
 import { WicketAnimation } from "./animations/wicket-animation";
 import { ConfettiBurst } from "./animations/confetti-burst";
+import { CelebrationPopperModal } from "./animations/celebration-popper-modal";
 import type {
   BallRecord,
   FallOfWicket,
@@ -94,6 +95,7 @@ export interface LiveScorecardProps {
   onExtra: (type: string, runsOffBat?: number, extraRuns?: number) => void;
   onWicket: (type: string, batterOut?: string, fielderInvolved?: string) => void;
   onChangeBowler: (bowlerName: string) => void;
+  onSelectNextBatter?: (batterName: string) => void;
   onUndo: () => void;
   onEndInnings: () => void;
   onEndMatch: () => void;
@@ -163,6 +165,7 @@ export function LiveScorecard({
   onExtra,
   onWicket,
   onChangeBowler,
+  onSelectNextBatter,
   onUndo,
   onEndInnings,
   onEndMatch,
@@ -655,10 +658,14 @@ export function LiveScorecard({
   );
 
   const renderNextBatterPicker = () => {
-    // Filter batters from battingOrder who have not batted yet
-    const availableNextBatters = battingOrder.filter(
-      b => b.status === "yet_to_bat" || b.status === "upcoming" || b.status === "dnb"
-    );
+    // Filter batters from battingOrder who are not out and not currently at the crease
+    const availableNextBatters = battingOrder.filter((b) => {
+      if (b.status === "out") return false;
+      if (b.status === "batting") return false;
+      if (striker && b.name === striker.name) return false;
+      if (nonStriker && b.name === nonStriker.name) return false;
+      return true;
+    });
 
     return (
       <View className="bg-surface rounded-2xl p-4 gap-3 border border-primary/30 shadow-xl">
@@ -688,6 +695,9 @@ export function LiveScorecard({
                 onPress={async () => {
                   if (Platform.OS !== "web") {
                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }
+                  if (onSelectNextBatter) {
+                    onSelectNextBatter(batter.name);
                   }
                   setShowNextBatterPicker(false);
                 }}
@@ -900,60 +910,60 @@ export function LiveScorecard({
   };
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ paddingBottom: bottomPadding }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Animation Overlays */}
-      {activeAnimation === "boundary-4" && (
-        <BoundaryCelebration runs={4} onAnimationComplete={() => setActiveAnimation(null)} />
-      )}
-      {activeAnimation === "boundary-6" && (
-        <>
-          <BoundaryCelebration runs={6} onAnimationComplete={() => setActiveAnimation(null)} />
-          <ConfettiBurst isVisible={true} color="#FFD700" />
-        </>
-      )}
-      {activeAnimation === "wicket" && (
-        <WicketAnimation
-          playerName={dismissedBatterName || striker?.name || "Batter"}
-          dismissalType={pendingDismissalType || "Wicket"}
-          onAnimationComplete={() => {
-            setActiveAnimation(null);
-            setDismissedBatterName(null);
-            setPendingDismissalType(null);
-          }}
-        />
-      )}
+    <View style={{ flex: 1, position: "relative", width: "100%", height: "100%" }}>
+      {/* Celebration Popper Modal Overlay for 4, 6 and Wicket */}
+      <CelebrationPopperModal
+        type={
+          activeAnimation === "boundary-4"
+            ? "four"
+            : activeAnimation === "boundary-6"
+              ? "six"
+              : activeAnimation === "wicket"
+                ? "wicket"
+                : null
+        }
+        playerName={dismissedBatterName || striker?.name || "Batter"}
+        dismissalType={pendingDismissalType || "Wicket"}
+        onClose={() => {
+          setActiveAnimation(null);
+          setDismissedBatterName(null);
+          setPendingDismissalType(null);
+        }}
+      />
 
-      {/* ===== PREMIUM MATCH HEADER with Team Shield Display ===== */}
-      <View style={{ backgroundColor: "#0066FF" }} className="px-5 pt-4 pb-5 gap-2.5">
-        <LiquidGlassOverlay color="#0066FF" variant="sheen" speed={0.6} intensity={0.4} />
+      <ScrollView
+        className="flex-1 bg-background"
+        contentContainerStyle={{ paddingBottom: bottomPadding }}
+        showsVerticalScrollIndicator={false}
+      >
+
+      {/* ===== PREMIUM MATCH HEADER with Pitch Dark Emerald Aesthetics ===== */}
+      <View style={{ backgroundColor: "#0B1511" }} className="px-5 pt-4 pb-5 gap-3 border-b border-[#10B981]/20">
+        <LiquidGlassOverlay color="#10B981" variant="sheen" speed={0.6} intensity={0.2} />
         
         {/* Top status bar */}
         <View className="flex-row items-center justify-between mb-1">
           <View className="flex-row items-center gap-2">
-            <View className="bg-white/15 rounded-full px-2.5 py-0.5">
-              <Text className="text-[10px] font-bold text-white tracking-wider">
+            <View className="bg-[#10B981]/20 border border-[#10B981]/40 rounded-full px-2.5 py-0.5">
+              <Text className="text-[10px] font-black text-[#10B981] tracking-wider">
                 {format.toUpperCase()}
               </Text>
             </View>
             {tossInfo && (
-              <View className="bg-white/10 rounded-full px-2 py-0.5">
-                <Text className="text-[9px] font-semibold text-white/90">{tossInfo}</Text>
+              <View className="bg-white/10 rounded-full px-2.5 py-0.5 border border-white/15">
+                <Text className="text-[9px] font-bold text-slate-200">{tossInfo}</Text>
               </View>
             )}
           </View>
           <View className="flex-row items-center gap-2">
             {powerplayPhase && powerplayPhase.isActive && (
-              <View className="bg-orange-400 rounded-full px-2.5 py-0.5">
-                <Text className="text-[9px] font-bold text-white">{powerplayPhase.phaseName}</Text>
+              <View className="bg-amber-500/20 border border-amber-400/40 rounded-full px-2.5 py-0.5">
+                <Text className="text-[9px] font-black text-amber-300">{powerplayPhase.phaseName}</Text>
               </View>
             )}
             {isFreeHit && (
-              <View className="bg-green-400 rounded-full px-2 py-0.5">
-                <Text className="text-[9px] font-bold text-green-900">FREE HIT</Text>
+              <View className="bg-[#10B981]/30 border border-[#10B981]/60 rounded-full px-2 py-0.5">
+                <Text className="text-[9px] font-black text-[#10B981]">FREE HIT</Text>
               </View>
             )}
           </View>
@@ -962,66 +972,66 @@ export function LiveScorecard({
         {/* Two-team score display */}
         <View className="flex-row items-center justify-between">
           {/* Team 1 (Batting/batted first) */}
-          <View className="flex-1">
+          <View className="flex-1 min-w-0 pr-2">
             <View className="flex-row items-center gap-1.5">
-              <View className="w-6 h-6 rounded-full bg-white/20 items-center justify-center">
-                <Text className="text-[10px] font-bold text-white">1</Text>
+              <View className="w-6 h-6 rounded-full bg-[#10B981]/20 border border-[#10B981]/40 items-center justify-center">
+                <Text className="text-[10px] font-black text-[#10B981]">1</Text>
               </View>
-              <Text className="text-sm font-semibold text-white/90" numberOfLines={1}>
+              <Text className="text-sm font-black text-white flex-1" numberOfLines={1}>
                 {team1Name}
               </Text>
             </View>
             {(team1Captain || team1Keeper) && (
-              <View className="flex-row items-center gap-1.5 mt-1 ml-8">
+              <View className="flex-row flex-wrap items-center gap-1 mt-1">
                 {team1Captain && (
-                  <View className="bg-amber-400/20 rounded-md px-1.5 py-0.5">
-                    <Text className="text-[9px] font-semibold text-amber-200">👑 {team1Captain}</Text>
+                  <View className="bg-amber-500/20 border border-amber-400/30 rounded-md px-1.5 py-0.5">
+                    <Text className="text-[9px] font-bold text-amber-300" numberOfLines={1}>👑 {team1Captain}</Text>
                   </View>
                 )}
                 {team1Keeper && (
-                  <View className="bg-blue-400/20 rounded-md px-1.5 py-0.5">
-                    <Text className="text-[9px] font-semibold text-blue-200">🧤 {team1Keeper}</Text>
+                  <View className="bg-blue-500/20 border border-blue-400/30 rounded-md px-1.5 py-0.5">
+                    <Text className="text-[9px] font-bold text-blue-300" numberOfLines={1}>🧤 {team1Keeper}</Text>
                   </View>
                 )}
               </View>
             )}
-            <Text className="text-4xl font-bold text-white mt-1 tracking-tight">
+            <Text className="text-3xl font-black text-white mt-1.5 tracking-tight tabular-nums">
               {isSecondInnings ? (firstInningsScore || "—") : `${currentRuns}/${currentWickets}`}
             </Text>
           </View>
 
           {/* VS Divider */}
-          <View className="mx-3 items-center justify-center">
-            <View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center">
-              <Text className="text-xs font-bold text-white/70">VS</Text>
+          <View className="px-2 items-center justify-center">
+            <View className="w-9 h-9 rounded-full bg-[#10B981]/20 border border-[#10B981]/40 items-center justify-center shadow-md">
+              <Text className="text-xs font-black text-[#10B981]">VS</Text>
             </View>
           </View>
 
           {/* Team 2 (Current batting/batted second) */}
-          <View className="flex-1 items-end">
-            <View className="flex-row items-center gap-1.5">
-              <Text className="text-sm font-semibold text-white/90" numberOfLines={1}>
+          <View className="flex-1 min-w-0 pl-2 items-end">
+            <View className="flex-row items-center gap-1.5 justify-end">
+              <Text className="text-sm font-black text-white flex-1 text-right" numberOfLines={1}>
                 {team2Name}
               </Text>
-              <View className="w-6 h-6 rounded-full bg-white/20 items-center justify-center">
-                <Text className="text-[10px] font-bold text-white">{isSecondInnings ? "2" : "1"}</Text>
+              <View className="w-6 h-6 rounded-full bg-white/10 border border-white/20 items-center justify-center">
+                <Text className="text-[10px] font-black text-slate-300">{isSecondInnings ? "2" : "1"}</Text>
               </View>
             </View>
             {(team2Captain || team2Keeper) && (
-              <View className="flex-row items-center gap-1.5 mt-1 justify-end">
+              <View className="flex-row flex-wrap items-center gap-1 mt-1 justify-end">
                 {team2Captain && (
-                  <View className="bg-amber-400/20 rounded-md px-1.5 py-0.5">
-                    <Text className="text-[9px] font-semibold text-amber-200">👑 {team2Captain}</Text>
+                  <View className="bg-amber-500/20 border border-amber-400/30 rounded-md px-1.5 py-0.5">
+                    <Text className="text-[9px] font-bold text-amber-300" numberOfLines={1}>👑 {team2Captain}</Text>
                   </View>
                 )}
                 {team2Keeper && (
-                  <View className="bg-blue-400/20 rounded-md px-1.5 py-0.5">
-                    <Text className="text-[9px] font-semibold text-blue-200">🧤 {team2Keeper}</Text>
+                  <View className="bg-blue-500/20 border border-blue-400/30 rounded-md px-1.5 py-0.5">
+                    <Text className="text-[9px] font-bold text-blue-300" numberOfLines={1}>🧤 {team2Keeper}</Text>
                   </View>
                 )}
               </View>
             )}
-            <Text className="text-4xl font-bold text-white mt-1 tracking-tight">
+            <Text className="text-3xl font-black text-white mt-1.5 tracking-tight tabular-nums">
               {isSecondInnings ? `${currentRuns}/${currentWickets}` : (firstInningsScore || "—")}
             </Text>
           </View>
@@ -1715,6 +1725,7 @@ export function LiveScorecard({
       {/* Bottom padding for safe area */}
       <View className="h-8" />
     </ScrollView>
+    </View>
   );
 }
 

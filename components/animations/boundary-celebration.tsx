@@ -1,13 +1,12 @@
-import { View, Text } from "react-native";
+import { View, Text, Modal } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withSequence,
   Easing,
-  runOnJS,
 } from "react-native-reanimated";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export interface BoundaryCelebrationProps {
   runs: number;
@@ -16,116 +15,85 @@ export interface BoundaryCelebrationProps {
 
 /**
  * Boundary Celebration Animation Component
- * Shows celebratory animation for fours and sixes
+ * Renders a root transparent Modal overlay for 4s and 6s
  */
 export function BoundaryCelebration({ runs, onAnimationComplete }: BoundaryCelebrationProps) {
-  const scale = useSharedValue(0);
+  const [visible, setVisible] = useState(true);
+  const scale = useSharedValue(0.2);
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { translateY: translateY.value }],
+    transform: [{ scale: scale.value }],
     opacity: opacity.value,
   }));
 
   useEffect(() => {
-    // Animate in and out
     scale.value = withSequence(
-      withTiming(1.2, {
-        duration: 300,
-        easing: Easing.out(Easing.cubic),
-      }),
-      withTiming(1, {
-        duration: 200,
-        easing: Easing.inOut(Easing.cubic),
-      })
+      withTiming(1.15, { duration: 220, easing: Easing.out(Easing.cubic) }),
+      withTiming(1, { duration: 120, easing: Easing.inOut(Easing.cubic) })
     );
 
     opacity.value = withSequence(
-      withTiming(1, { duration: 100 }),
-      withTiming(1, { duration: 1200 }),
-      withTiming(0, {
-        duration: 300,
-        easing: Easing.in(Easing.cubic),
-      })
+      withTiming(1, { duration: 120 }),
+      withTiming(1, { duration: 1300 }),
+      withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) })
     );
 
-    translateY.value = withSequence(
-      withTiming(-20, {
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-      }),
-      withTiming(-40, {
-        duration: 600,
-        easing: Easing.in(Easing.cubic),
-      })
-    );
-
-    // Call completion callback after animation
     const timer = setTimeout(() => {
+      setVisible(false);
       onAnimationComplete?.();
-    }, 1500);
+    }, 1600);
 
     return () => clearTimeout(timer);
   }, []);
 
   const isSix = runs === 6;
-  const celebrationText = isSix ? "🎆 SIX! 🎆" : "🎉 FOUR! 🎉";
+  const title = isSix ? "🎆 SIX! 🎆" : "🎉 FOUR! 🎉";
+  const bgColor = isSix ? "#10B981" : "#3B82F6"; // Mint Green for 6, Blue for 4
 
   return (
-    <Animated.View
-      style={[
-        {
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          marginLeft: -80,
-          marginTop: -40,
-          width: 160,
-          height: 80,
-          justifyContent: "center",
-          alignItems: "center",
-          zIndex: 1000,
-        },
-        animatedStyle,
-      ]}
-    >
+    <Modal transparent visible={visible} animationType="none" onRequestClose={() => {}}>
       <View
+        className="flex-1 items-center justify-center bg-black/60"
         style={{
-          backgroundColor: isSix ? "#FF6B35" : "#4CAF50",
-          paddingHorizontal: 20,
-          paddingVertical: 12,
-          borderRadius: 12,
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 999999,
           justifyContent: "center",
           alignItems: "center",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-          elevation: 8,
         }}
       >
-        <Text
-          style={{
-            fontSize: 24,
-            fontWeight: "bold",
-            color: "#fff",
-            textAlign: "center",
-          }}
+        <Animated.View
+          style={[
+            {
+              paddingHorizontal: 36,
+              paddingVertical: 24,
+              borderRadius: 28,
+              backgroundColor: bgColor,
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 3,
+              borderColor: "#FFFFFF",
+              shadowColor: bgColor,
+              shadowOffset: { width: 0, height: 16 },
+              shadowOpacity: 0.6,
+              shadowRadius: 32,
+              elevation: 25,
+            },
+            animatedStyle,
+          ]}
         >
-          {celebrationText}
-        </Text>
-        <Text
-          style={{
-            fontSize: 16,
-            fontWeight: "600",
-            color: "#fff",
-            marginTop: 4,
-          }}
-        >
-          +{runs} runs
-        </Text>
+          <Text style={{ fontSize: 32, fontWeight: "900", color: "#FFFFFF", textAlign: "center" }}>
+            {title}
+          </Text>
+          <Text style={{ fontSize: 18, fontWeight: "900", color: "#FFFFFF", textAlign: "center", marginTop: 4 }}>
+            +{runs} RUNS BOUNDARY!
+          </Text>
+        </Animated.View>
       </View>
-    </Animated.View>
+    </Modal>
   );
 }

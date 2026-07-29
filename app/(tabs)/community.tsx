@@ -1,88 +1,111 @@
 /**
- * Community Screen - CrickPro Network Hub (Apple Phone OLED UI)
+ * Cricket Community Screen - Scorers, Umpires, Grounds & Box Nets
  * 
- * Directory & booking network for:
- * - Scorers, Umpires, Commentators, Streamers, Organisers, Academies, Grounds, Box Cricket & Nets
+ * Design Architecture:
+ * - Pitch Dark Emerald Charcoal Palette matching exact user image 2
+ * - Active pill in Warm Yellow Gold (#FBBF24) with dark text
+ * - Book & Hire buttons in Warm Yellow Gold (#FBBF24) with dark text
+ * - Verified badge in Mint Green (#10B981)
  */
 import { ScrollView, Text, View, TouchableOpacity, RefreshControl, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassSearchBar } from "@/components/ui/glass-search-bar";
-import { useResponsive } from "@/hooks/use-responsive";
 import { useScrollPadding } from "@/hooks/use-scroll-padding";
 
-type CommunityCategory = "all" | "scorers" | "umpires" | "commentators" | "streamers" | "organisers" | "academies" | "grounds" | "nets";
+type CommunityRole = "all" | "scorers" | "umpires" | "commentators" | "streamers" | "organisers" | "academies" | "grounds" | "box_nets";
 
 interface CommunityMember {
   id: string;
   name: string;
-  category: CommunityCategory;
-  categoryLabel: string;
-  icon: string;
+  role: string;
+  verified: boolean;
   rating: number;
-  reviews: number;
-  experience: string;
+  reviewsCount: number;
   location: string;
-  tagline: string;
-  priceTag: string;
-  isVerified: boolean;
-  status: "Available" | "Booked" | "Open";
+  experience: string;
+  priceRate: string;
+  description: string;
+  icon: string;
 }
-
-const CATEGORIES: { id: CommunityCategory; label: string; icon: string }[] = [
-  { id: "all", label: "🌟 All Network", icon: "🌐" },
-  { id: "scorers", label: "📊 Scorers", icon: "📊" },
-  { id: "umpires", label: "⚖️ Umpires", icon: "⚖️" },
-  { id: "commentators", label: "🎙️ Commentators", icon: "🎙️" },
-  { id: "streamers", label: "📹 Streamers", icon: "📹" },
-  { id: "organisers", label: "🏆 Organisers", icon: "🏆" },
-  { id: "academies", label: "🏫 Academies", icon: "🏫" },
-  { id: "grounds", label: "🏟️ Grounds", icon: "🏟️" },
-  { id: "nets", label: "🏏 Box Cricket & Nets", icon: "🏏" },
-];
-
-const COMMUNITY_DATA: CommunityMember[] = [
-  { id: "c1", name: "Rahul Sharma", category: "scorers", categoryLabel: "OFFICIAL SCORER", icon: "📊", rating: 4.9, reviews: 48, experience: "5+ yrs exp", location: "Central Park Stadium", tagline: "Certified ball-by-ball live digital scorer with 100% accuracy.", priceTag: "₹800/match", isVerified: true, status: "Available" },
-  { id: "c2", name: "David Shepherd", category: "umpires", categoryLabel: "CERTIFIED UMPIRE", icon: "⚖️", rating: 4.95, reviews: 82, experience: "10+ yrs exp", location: "Riverside Oval", tagline: "BCCI Level-2 certified match umpire for tournaments & T20s.", priceTag: "₹1,500/match", isVerified: true, status: "Available" },
-  { id: "c3", name: "Voice of Cricket Studio", category: "commentators", categoryLabel: "LIVE COMMENTARY", icon: "🎙️", rating: 4.85, reviews: 36, experience: "3+ yrs exp", location: "City Stadium", tagline: "Energetic ball-by-ball Hindi & English commentary for live streams.", priceTag: "₹2,000/match", isVerified: true, status: "Available" },
-  { id: "c4", name: "ProStream Media", category: "streamers", categoryLabel: "HD STREAMING", icon: "📹", rating: 4.9, reviews: 64, experience: "4K Dual Cam", location: "All Venues", tagline: "Multi-camera YouTube live broadcast with real-time score overlays.", priceTag: "₹4,500/match", isVerified: true, status: "Available" },
-  { id: "c5", name: "Apex Cricket Events", category: "organisers", categoryLabel: "EVENT ORGANISER", icon: "🏆", rating: 4.92, reviews: 110, experience: "50+ Tournaments", location: "Metro Region", tagline: "Full tournament management: grounds, umpires, balls & trophies.", priceTag: "Custom Packages", isVerified: true, status: "Open" },
-  { id: "c6", name: "National Cricket Academy", category: "academies", categoryLabel: "CRICKET ACADEMY", icon: "🏫", rating: 4.88, reviews: 140, experience: "State Coaches", location: "Sports Complex", tagline: "Professional coaching for Under-14, Under-19 and senior players.", priceTag: "₹3,000/month", isVerified: true, status: "Open" },
-  { id: "c7", name: "Royal Green Cricket Ground", category: "grounds", categoryLabel: "MATCH GROUND", icon: "🏟️", rating: 4.95, reviews: 95, experience: "Turf Pitch", location: "Green Valley", tagline: "Floodlit turf ground with pavilion, dressing rooms & scoreboard.", priceTag: "₹8,000/slot", isVerified: true, status: "Available" },
-  { id: "c8", name: "PowerStrike Box Cricket & Nets", category: "nets", categoryLabel: "BOX & NET PRACTICE", icon: "🏏", rating: 4.82, reviews: 75, experience: "Bowling Machine", location: "Central Avenue", tagline: "Indoor turf box cricket court & automated RoboArm net practice.", priceTag: "₹1,200/hour", isVerified: true, status: "Available" },
-];
 
 export default function CommunityScreen() {
   const { paddingBottom } = useScrollPadding();
   const router = useRouter();
-  const responsive = useResponsive();
-  const [activeCategory, setActiveCategory] = useState<CommunityCategory>("all");
+  const [roleFilter, setRoleFilter] = useState<CommunityRole>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
+  const mockMembers: CommunityMember[] = [
+    {
+      id: "m1",
+      name: "Rahul Sharma",
+      role: "OFFICIAL SCORER",
+      verified: true,
+      rating: 4.9,
+      reviewsCount: 48,
+      location: "Central Park Stadium",
+      experience: "5+ yrs exp",
+      priceRate: "₹800/match",
+      description: "Certified ball-by-ball live digital scorer with 100% accuracy.",
+      icon: "📊",
+    },
+    {
+      id: "m2",
+      name: "David Shepherd",
+      role: "CERTIFIED UMPIRE",
+      verified: true,
+      rating: 4.95,
+      reviewsCount: 62,
+      location: "Riverside Oval",
+      experience: "10+ yrs exp",
+      priceRate: "₹1,500/match",
+      description: "BCCI Level-2 certified match umpire for tournaments & T20s.",
+      icon: "⚖️",
+    },
+    {
+      id: "m3",
+      name: "Voice of Cricket Studio",
+      role: "LIVE COMMENTARY",
+      verified: true,
+      rating: 4.85,
+      reviewsCount: 36,
+      location: "City Sports Club",
+      experience: "Hindi & English",
+      priceRate: "₹2,000/match",
+      description: "Energetic ball-by-ball Hindi & English commentary for live streams.",
+      icon: "🎙️",
+    },
+    {
+      id: "m4",
+      name: "Green Turf Box Nets",
+      role: "BOX CRICKET & NETS",
+      verified: true,
+      rating: 4.8,
+      reviewsCount: 120,
+      location: "Downtown Arena",
+      experience: "Floodlights • Jugs machine",
+      priceRate: "₹1,200/hr",
+      description: "FIFA approved astro turf box cricket & bowling machine nets.",
+      icon: "🏏",
+    },
+  ];
+
   const filteredMembers = useMemo(() => {
-    let result = COMMUNITY_DATA;
-    if (activeCategory !== "all") {
-      result = result.filter((m) => m.category === activeCategory);
-    }
+    let result = mockMembers;
     if (searchQuery.trim()) {
-      result = result.filter((m) =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.tagline.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.location.toLowerCase().includes(searchQuery.toLowerCase())
+      result = result.filter(
+        (m) =>
+          m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          m.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          m.location.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
     return result;
-  }, [activeCategory, searchQuery]);
-
-  const handleNav = useCallback(async (path: string) => {
-    if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(path as any);
-  }, [router]);
+  }, [mockMembers, searchQuery]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -96,105 +119,115 @@ export default function CommunityScreen() {
         style={{ flex: 1, width: "100%" }}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: paddingBottom + 24 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#FF9F0A" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#10B981" />}
       >
         <View className="flex-1 gap-5 pt-2">
           
-          {/* HEADER */}
+          {/* HEADER (Exact User Image 2 Layout) */}
           <View className="flex-row items-center justify-between px-1">
             <View className="gap-0.5">
               <Text className="text-3xl font-black text-white tracking-tight">Cricket Community</Text>
-              <Text className="text-xs font-semibold text-slate-400">Scorers, Umpires, Grounds & Box Nets</Text>
+              <Text className="text-xs font-bold text-slate-400">Scorers, Umpires, Grounds & Box Nets</Text>
             </View>
             <TouchableOpacity
-              onPress={() => alert("Registration form coming in next update!")}
-              className="bg-[#FF9F0A] rounded-xl px-3.5 py-2 flex-row items-center gap-1.5 active:opacity-80"
+              onPress={() => alert("Join Cricket Community Network!")}
+              className="bg-[#F59E0B] hover:bg-[#D97706] px-4 py-2.5 rounded-xl flex-row items-center gap-1.5 active:scale-95 shadow-lg shadow-amber-500/20"
             >
-              <Text className="text-black text-xs font-black">+ Join Network</Text>
+              <Text className="text-[#050B08] text-xs font-black">+ Join Network</Text>
             </TouchableOpacity>
           </View>
 
-          {/* SEARCH BAR */}
+          {/* SEARCH BAR (Exact User Image 2 Layout) */}
           <GlassSearchBar
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search umpires, grounds, box cricket..."
           />
 
-          {/* CATEGORY SELECTOR CAROUSEL */}
+          {/* NETWORK CATEGORY PILLS (Exact User Image 2 Layout) */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}>
-            {CATEGORIES.map((cat) => {
-              const active = activeCategory === cat.id;
+            {[
+              { id: "all", label: "⭐ All Network" },
+              { id: "scorers", label: "📊 Scorers" },
+              { id: "umpires", label: "⚖️ Umpires" },
+              { id: "commentators", label: "🎙️ Commentators" },
+              { id: "streamers", label: "📺 Streamers" },
+              { id: "organisers", label: "🏆 Organisers" },
+              { id: "academies", label: "🏟️ Academies" },
+              { id: "grounds", label: "🏛️ Grounds" },
+              { id: "box_nets", label: "🏏 Box Cricket & Nets" },
+            ].map((tab) => {
+              const active = roleFilter === tab.id;
               return (
                 <TouchableOpacity
-                  key={cat.id}
+                  key={tab.id}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setActiveCategory(cat.id);
+                    setRoleFilter(tab.id as any);
                   }}
-                  className={`px-4 py-2 rounded-xl border ${active ? 'bg-[#FF9F0A] border-[#FF9F0A]' : 'bg-[#1C1C1E] border-white/10'}`}
+                  className={`px-4 py-2.5 rounded-xl border flex-row items-center transition-all active:scale-95 ${
+                    active
+                      ? "bg-[#F59E0B] border-[#F59E0B] shadow-md shadow-amber-500/30"
+                      : "bg-[#0B1712] border-[#142820]"
+                  }`}
                 >
-                  <Text className={`text-xs font-black ${active ? 'text-black' : 'text-slate-300'}`}>{cat.label}</Text>
+                  <Text className={`text-xs font-black ${active ? "text-[#050B08]" : "text-[#CBD5E1]"}`}>
+                    {tab.label}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          {/* COMMUNITY DIRECTORY CARDS */}
-          <View className="gap-3">
-            {filteredMembers.map((item) => (
+          {/* MEMBER CARDS LIST (Exact User Image 2 Layout) */}
+          <View className="gap-3.5">
+            {filteredMembers.map((member) => (
               <GlassCard
-                key={item.id}
+                key={member.id}
                 intensity="heavy"
                 radius="xl"
                 padding="md"
-                className="bg-[#1C1C1E] border-white/15 gap-3"
+                className="bg-[#0B1511]/95 border-[#10B981]/20 gap-3"
               >
-                {/* Header */}
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3">
-                    <View className="w-11 h-11 rounded-2xl bg-[#FF9F0A]/15 border border-[#FF9F0A]/40 items-center justify-center">
-                      <Text className="text-xl">{item.icon}</Text>
+                    <View className="w-10 h-10 rounded-xl bg-[#060D0A] border border-[#10B981]/30 items-center justify-center">
+                      <Text className="text-lg">{member.icon}</Text>
                     </View>
                     <View>
-                      <View className="flex-row items-center gap-1.5">
-                        <Text className="text-base font-black text-white">{item.name}</Text>
-                        {item.isVerified && (
-                          <View className="bg-emerald-500/20 px-1.5 py-0.5 rounded-full border border-emerald-500/30">
-                            <Text className="text-[9px] font-black text-emerald-400">✓ VERIFIED</Text>
+                      <View className="flex-row items-center gap-2">
+                        <Text className="text-base font-black text-white">{member.name}</Text>
+                        {member.verified && (
+                          <View className="bg-[#10B981]/20 border border-[#10B981]/40 px-2 py-0.5 rounded-full flex-row items-center gap-1">
+                            <Text className="text-[10px] font-black text-[#10B981]">✓ VERIFIED</Text>
                           </View>
                         )}
                       </View>
-                      <Text className="text-[11px] font-extrabold text-[#FF9F0A] tracking-wider">{item.categoryLabel}</Text>
+                      <Text className="text-[11px] font-black text-[#F59E0B] uppercase tracking-wider">{member.role}</Text>
                     </View>
                   </View>
 
-                  <View className="bg-black/50 px-2.5 py-1 rounded-lg border border-white/10 items-end">
-                    <Text className="text-xs font-black text-amber-400">⭐ {item.rating}</Text>
-                    <Text className="text-[9px] font-semibold text-slate-400">({item.reviews} reviews)</Text>
+                  <View className="flex-row items-center gap-1 bg-[#060D0A] px-2.5 py-1 rounded-lg border border-white/10">
+                    <Text className="text-xs font-black text-[#FBBF24]">★ {member.rating}</Text>
+                    <Text className="text-[10px] font-bold text-slate-400">({member.reviewsCount} reviews)</Text>
                   </View>
                 </View>
 
-                {/* Tagline */}
-                <Text className="text-xs font-semibold text-slate-300 leading-snug">
-                  {item.tagline}
+                <Text className="text-xs font-semibold text-slate-300 leading-relaxed">
+                  {member.description}
                 </Text>
 
-                {/* Footer Details & Action Button */}
                 <View className="flex-row items-center justify-between pt-2 border-t border-white/10">
-                  <View className="gap-0.5">
-                    <Text className="text-[10px] font-extrabold text-slate-400">{item.location} • {item.experience}</Text>
-                    <Text className="text-xs font-black text-white">{item.priceTag}</Text>
+                  <View>
+                    <Text className="text-[11px] font-bold text-slate-400">{member.location} • {member.experience}</Text>
+                    <Text className="text-sm font-black text-white">{member.priceRate}</Text>
                   </View>
 
                   <TouchableOpacity
-                    onPress={() => {
-                      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      alert(`Contacting ${item.name}... Phone & booking details ready!`);
-                    }}
-                    className="bg-[#FF9F0A] hover:bg-amber-400 px-4 py-2 rounded-xl active:scale-95 shadow-md shadow-[#FF9F0A]/30"
+                    onPress={() => alert(`Booking request sent to ${member.name}!`)}
+                    className="bg-[#F59E0B] hover:bg-[#D97706] px-4 py-2 rounded-xl active:scale-95 shadow-md shadow-amber-500/20"
                   >
-                    <Text className="text-black font-black text-xs uppercase">Book & Hire →</Text>
+                    <Text className="text-[#050B08] text-xs font-black uppercase tracking-wider">BOOK & HIRE →</Text>
                   </TouchableOpacity>
                 </View>
               </GlassCard>

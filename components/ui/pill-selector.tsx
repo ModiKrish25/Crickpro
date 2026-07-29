@@ -70,8 +70,8 @@ export function PillSelector<T extends string = string>({
         className={cn(
           "rounded-2xl flex-row items-center gap-2",
           isActive
-            ? "bg-[#0066FF]"
-            : "bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10",
+            ? "bg-[#10B981]"
+            : "bg-[#0B1712] border border-[#142820]",
           compact ? "px-3 py-2" : "px-4 py-3",
         )}
         style={
@@ -147,8 +147,8 @@ export function ChipToggle<T extends string = string>({
             className={cn(
               "flex-1 rounded-2xl py-3 items-center",
               isActive
-                ? "bg-[#0066FF]"
-                : "bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10",
+                ? "bg-[#10B981]"
+                : "bg-[#0B1712] border border-[#142820]",
             )}
             style={
               Platform.OS === "web" && !isActive

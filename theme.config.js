@@ -1,48 +1,42 @@
 /**
- * CrickPro Design System — Premium Color Palette
- * 
- * Inspired by:
- * • Apple Human Interface Guidelines (neutral, titanium)
- * • Tesla minimal dashboard (dark slate, subtle accents)
- * • Linear.app (clean, purposeful colors)
- * • Nothing Phone (transparency, glass aesthetics)
+ * CrickPro Design System — Pitch Dark Emerald Color Palette (Strict Dark Mode)
  */
 /** @type {const} */
 const themeColors = {
-  // Primary — Emerald Green Accent
-  primary: { light: '#059669', dark: '#10B981' },
+  // Primary — Mint Emerald Green Accent
+  primary: { light: '#10B981', dark: '#10B981' },
   
-  // Background — Deep Near-Black Dark Emerald
-  background: { light: '#F4F6F5', dark: '#08120E' },
+  // Background — Pitch Dark Emerald Charcoal (Always Dark Black-Emerald)
+  background: { light: '#050B08', dark: '#050B08' },
   
   // Surface — Layered Dark Emerald Elevated Card Surfaces
-  surface: { light: '#FFFFFF', dark: '#11201A' },
+  surface: { light: '#0B1511', dark: '#0B1511' },
   
   // Foreground — Off-white primary typography
-  foreground: { light: '#111827', dark: '#F9FAFB' },
+  foreground: { light: '#FFFFFF', dark: '#FFFFFF' },
   
   // Muted — Secondary gray typography
-  muted: { light: '#6B7280', dark: '#9CA3AF' },
+  muted: { light: '#94A3B8', dark: '#94A3B8' },
   
-  // Border — Thin translucent emerald/white borders
-  border: { light: 'rgba(0,0,0,0.08)', dark: 'rgba(255,255,255,0.10)' },
+  // Border — Thin translucent emerald borders
+  border: { light: 'rgba(16,185,129,0.20)', dark: 'rgba(16,185,129,0.20)' },
   
   // Success — Vivid Emerald Green
-  success: { light: '#059669', dark: '#10B981' },
+  success: { light: '#10B981', dark: '#10B981' },
   
-  // Warning — Warm Amber
-  warning: { light: '#D97706', dark: '#F59E0B' },
+  // Warning — Warm Amber Gold
+  warning: { light: '#F59E0B', dark: '#FBBF24' },
   
   // Error / Wicket — Vibrant Red
-  error: { light: '#DC2626', dark: '#EF4444' },
+  error: { light: '#EF4444', dark: '#EF4444' },
   
   // Glass — Translucent frosted surfaces
-  glass: { light: 'rgba(255,255,255,0.85)', dark: 'rgba(17,32,26,0.75)' },
-  glassBorder: { light: 'rgba(0,0,0,0.08)', dark: 'rgba(16,185,129,0.20)' },
-  glassHighlight: { light: 'rgba(255,255,255,0.95)', dark: 'rgba(255,255,255,0.12)' },
+  glass: { light: 'rgba(11,21,17,0.85)', dark: 'rgba(11,21,17,0.85)' },
+  glassBorder: { light: 'rgba(16,185,129,0.20)', dark: 'rgba(16,185,129,0.20)' },
+  glassHighlight: { light: 'rgba(255,255,255,0.15)', dark: 'rgba(255,255,255,0.15)' },
   
   // Accent — Emerald Glow Accent
-  accent: { light: '#10B981', dark: '#34D399' },
+  accent: { light: '#10B981', dark: '#10B981' },
 };
 
 module.exports = { themeColors };

@@ -628,8 +628,7 @@ export class CricketRulesEngine {
         innings = this.getCurrentInnings();
         if (!innings) throw new Error("Failed to initialize second innings");
       } else {
-        console.warn("Attempted to record delivery on completed match");
-        return null as any;
+        throw new Error("No active innings");
       }
     }
 
@@ -1133,6 +1132,52 @@ export class CricketRulesEngine {
       startedAtInnings: false,
     };
     // ===== END NEW PARTNERSHIP =====
+  }
+
+  /**
+   * Set a specific batter from the squad as the active incoming batter at the crease.
+   * If the previous incoming batter was auto-assigned by default, this replaces them
+   * with the chosen batter and updates partnership tracking.
+   */
+  public setNextBatter(batterName: string): boolean {
+    const innings = this.getCurrentInnings();
+    if (!innings || innings.isComplete) return false;
+
+    const targetIdx = innings.battingOrder.findIndex(b => b.name === batterName);
+    if (targetIdx < 0) return false;
+
+    const targetBatter = innings.battingOrder[targetIdx];
+    if (targetBatter.isOut || targetBatter.status === "out") return false;
+
+    const currentStrikerBatter = innings.battingOrder[innings.currentStriker];
+    const currentNonStrikerBatter = innings.battingOrder[innings.currentNonStriker];
+
+    // If current striker hasn't faced a ball (ballsFaced === 0 && runs === 0), swap them for targetBatter
+    if (currentStrikerBatter && currentStrikerBatter.name !== batterName && currentStrikerBatter.ballsFaced === 0 && currentStrikerBatter.runs === 0) {
+      if (currentStrikerBatter.status === "batting") {
+        currentStrikerBatter.status = "did_not_bat";
+      }
+      innings.currentStriker = targetIdx;
+      targetBatter.status = "batting";
+    } else if (currentNonStrikerBatter && currentNonStrikerBatter.name !== batterName && currentNonStrikerBatter.ballsFaced === 0 && currentNonStrikerBatter.runs === 0) {
+      if (currentNonStrikerBatter.status === "batting") {
+        currentNonStrikerBatter.status = "did_not_bat";
+      }
+      innings.currentNonStriker = targetIdx;
+      targetBatter.status = "batting";
+    } else {
+      innings.currentStriker = targetIdx;
+      targetBatter.status = "batting";
+    }
+
+    if (innings.currentPartnership) {
+      innings.currentPartnership.batter1Index = innings.currentStriker;
+      innings.currentPartnership.batter1Name = innings.battingOrder[innings.currentStriker]?.name || "";
+      innings.currentPartnership.batter2Index = innings.currentNonStriker;
+      innings.currentPartnership.batter2Name = innings.battingOrder[innings.currentNonStriker]?.name || "";
+    }
+
+    return true;
   }
 
   private swapStrike(innings: InningsState): void {

@@ -68,20 +68,20 @@ export interface GlassCardProps extends ViewProps {
 
 const twIntensityMap: Record<string, { bg: string; border: string }> = {
   subtle: {
-    bg: "bg-white/40 dark:bg-white/[0.04]",
-    border: "border-white/30 dark:border-white/[0.08]",
+    bg: "bg-[#0B1511]",
+    border: "border-[#10B981]/20",
   },
   medium: {
-    bg: "bg-white/60 dark:bg-white/[0.06]",
-    border: "border-white/40 dark:border-white/[0.10]",
+    bg: "bg-[#0B1511]",
+    border: "border-[#10B981]/20",
   },
   high: {
-    bg: "bg-white/80 dark:bg-white/[0.10]",
-    border: "border-white/50 dark:border-white/[0.14]",
+    bg: "bg-[#09120E]",
+    border: "border-[#10B981]/30",
   },
   heavy: {
-    bg: "bg-white/90 dark:bg-white/[0.14]",
-    border: "border-white/60 dark:border-white/[0.18]",
+    bg: "bg-[#070E0B]",
+    border: "border-[#10B981]/35",
   },
 };
 

@@ -66,9 +66,8 @@ export function ScreenContainer({
   return (
     <View
       className={cn(
-        "flex-1",
-        isDark ? "bg-background" : "bg-[#F5F5F7]",
-        glass && (isDark ? "bg-black/50" : "bg-white/50"),
+        "flex-1 bg-[#050B08]",
+        glass && "bg-[#050B08]/90",
         containerClassName,
       )}
       style={[
@@ -79,11 +78,13 @@ export function ScreenContainer({
               width: "100%",
               display: "flex",
               flexDirection: "column",
+              backgroundColor: "#050B08",
             }
           : {
               // Native: flex fills parent
               flex: 1,
               width: "100%",
+              backgroundColor: "#050B08",
             },
         (isWeb && glass) ? {
           backdropFilter: `blur(${blurAmount}px) saturate(180%)`,

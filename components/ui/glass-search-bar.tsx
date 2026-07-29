@@ -59,9 +59,7 @@ export function GlassSearchBar({
     <View
       className={cn(
         "flex-row items-center rounded-2xl px-4 py-3 gap-3",
-        isDark ? "bg-white/[0.06]" : "bg-white/70",
-        "border",
-        isDark ? "border-white/[0.10]" : "border-white/40",
+        "bg-[#0B1511] border border-[#10B981]/30",
       )}
       style={{
         ...(Platform.OS === "web" ? {

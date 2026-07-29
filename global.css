@@ -3,48 +3,70 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #0066FF;
-  --color-background: #0A0A0B;
-  --color-surface: #141416;
-  --color-foreground: #F5F5F7;
-  --color-muted: #98989D;
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-success: #30D158;
-  --color-warning: #FF9F0A;
-  --color-error: #FF453A;
-  --color-glass: rgba(255, 255, 255, 0.08);
-  --color-glass-border: rgba(255, 255, 255, 0.12);
-  --color-glass-highlight: rgba(255, 255, 255, 0.15);
-  color-scheme: dark;
+  --color-primary: #10B981 !important;
+  --color-background: #050B08 !important;
+  --color-surface: #0B1511 !important;
+  --color-foreground: #FFFFFF !important;
+  --color-muted: #94A3B8 !important;
+  --color-border: rgba(16, 185, 129, 0.20) !important;
+  --color-success: #10B981 !important;
+  --color-warning: #F59E0B !important;
+  --color-error: #EF4444 !important;
+  --color-glass: rgba(11, 21, 17, 0.95) !important;
+  --color-glass-border: rgba(16, 185, 129, 0.20) !important;
+  --color-glass-highlight: rgba(255, 255, 255, 0.15) !important;
+  color-scheme: dark !important;
 }
 
 html, body {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  background-color: #0A0A0B;
-  color: #F5F5F7;
-  overflow-x: hidden;
+  height: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background-color: #050B08 !important;
+  color: #FFFFFF !important;
+  overflow-x: hidden !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
 }
 
 #root,
-[data-reactroot] {
-  height: 100%;
-  width: 100%;
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  background-color: #0A0A0B;
+[data-reactroot],
+.css-view-175oi2r {
+  height: 100% !important;
+  width: 100% !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background-color: #050B08 !important;
 }
 
 #root > div,
 [data-reactroot] > div {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  height: 100%;
-  min-height: 100vh;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  height: 100% !important;
+  min-height: 100vh !important;
+  background-color: #050B08 !important;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(5, 11, 8, 0.9);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.6);
 }

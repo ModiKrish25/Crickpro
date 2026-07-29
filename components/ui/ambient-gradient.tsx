@@ -60,8 +60,7 @@ export function AmbientGradient({
   className,
 }: AmbientGradientProps) {
   const { colorScheme } = useThemeContext();
-  const isDark = colorScheme === "dark";
-  const blobs = isDark ? DARK_BLOBS : LIGHT_BLOBS;
+  const blobs = DARK_BLOBS;
 
   if (Platform.OS === "web") {
     // Web: Use CSS radial gradients for smooth, performant rendering

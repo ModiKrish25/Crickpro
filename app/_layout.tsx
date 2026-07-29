@@ -78,7 +78,8 @@ function RootLayoutWithPreloader() {
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
-    } : { flex: 1, height: "100%", width: "100%" }}>
+      backgroundColor: "#050B08",
+    } : { flex: 1, height: "100%", width: "100%", backgroundColor: "#050B08" }}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -193,7 +194,8 @@ export default function RootLayout() {
       overflow: "hidden" as const,
       display: "flex" as const,
       flexDirection: "column" as const,
-    } : { flex: 1, width: "100%" }}>
+      backgroundColor: "#050B08",
+    } : { flex: 1, width: "100%", backgroundColor: "#050B08" }}>
       <AmbientGradient intensity={0.4} />
       {Platform.OS === "web" && (
         <DotGrid
@@ -215,11 +217,13 @@ export default function RootLayout() {
         display: "flex" as const,
         flexDirection: "column" as const,
         overflow: "hidden" as const,
+        backgroundColor: "#050B08",
       } : {
         flex: 1,
         width: "100%",
         position: "relative" as const,
         zIndex: 1,
+        backgroundColor: "#050B08",
       }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>

@@ -54,7 +54,7 @@ export default function LiveMatchScreen() {
   // Subscribe to WebSocket updates for this match
   const wsState = useMatchWebSocket(dbMatchId);
 
-  const { getUIState, createMatch, recordToss, startMatch, addBatter, addBowler, setOpeningBatters, setCurrentBowler, recordRun, recordExtra, recordWicket, undoLastBall, endInnings, endMatch, isMatchComplete } = useMatchState();
+  const { getUIState, createMatch, recordToss, startMatch, addBatter, addBowler, setOpeningBatters, setCurrentBowler, setNextBatter, recordRun, recordExtra, recordWicket, undoLastBall, endInnings, endMatch, isMatchComplete } = useMatchState();
 
   const [phase, setPhase] = useState<MatchPhase>("pre-match");
   const [tossWinner, setTossWinner] = useState<string>("");
@@ -447,6 +447,7 @@ export default function LiveMatchScreen() {
     lastOverBowlerName: uiState.lastOverBowlerName,
     onRun: handleRun, onExtra: handleExtra, onWicket: handleWicket,
     onChangeBowler: (bowlerName: string) => { setCurrentBowler(bowlerName); refresh(); },
+    onSelectNextBatter: (batterName: string) => { setNextBatter(batterName); refresh(); },
     onUndo: () => { undoLastBall(); refresh(); }, onEndInnings: handleEndInnings, onEndMatch: handleEndMatch,
     format, tossInfo: tossDecision && tossWinner ? `${tossWinner} opted to ${tossDecision === TossDecision.BAT ? 'bat' : 'bowl'}` : undefined,
     matchResult: uiState.matchResult,

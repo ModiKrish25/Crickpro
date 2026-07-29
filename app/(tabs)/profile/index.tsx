@@ -1,11 +1,9 @@
 /**
- * Profile Screen - Premium User & Manager Profile (CrickPro MLS UI)
+ * Profile Screen - Pitch Dark Emerald Charcoal Palette
  * 
  * Design Architecture:
- * - High-Impact Player Passport Banner with metallic badge & level ring
- * - Career Highlights Summary Cards (Matches, Runs, Wickets, Best Score)
- * - Organized Settings & Management Sections with Glass Cards
- * - Guest Login View with instant sign-in trigger
+ * - Matching exact user photo color scheme (#050B08 background, #10B981 Mint Green accents, #0B1511 cards)
+ * - Guest Login View & Authenticated Player Passport
  */
 import { ScrollView, Text, View, Platform, ActivityIndicator, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
@@ -14,7 +12,6 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { LiquidGlassOverlay } from "@/components/ui/liquid-glass-overlay";
 import { useScrollPadding } from "@/hooks/use-scroll-padding";
 
 export default function ProfileScreen() {
@@ -59,13 +56,13 @@ export default function ProfileScreen() {
       <ScreenContainer gradient>
         <ScrollView style={{ flex: 1, width: "100%" }} contentContainerStyle={{ flexGrow: 1, paddingBottom: paddingBottom + 24 }} showsVerticalScrollIndicator={false}>
           <View className="flex-1 gap-6 justify-center pt-8">
-            <GlassCard intensity="heavy" radius="xl" padding="xl" className="items-center gap-4 py-10 bg-[#0F1420] border-emerald-500/30">
-              <View className="w-24 h-24 rounded-full bg-emerald-500/10 border-2 border-emerald-500/40 items-center justify-center mb-1 shadow-lg shadow-emerald-500/20">
+            <GlassCard intensity="heavy" radius="xl" padding="xl" className="items-center gap-4 py-10 bg-[#0B1511] border-[#10B981]/30">
+              <View className="w-24 h-24 rounded-full bg-[#10B981]/10 border-2 border-[#10B981]/40 items-center justify-center mb-1 shadow-lg shadow-emerald-500/20">
                 <Text className="text-4xl">🏏</Text>
               </View>
               <View className="items-center gap-1">
                 <Text className="text-3xl font-black text-white tracking-tight">CRICKPRO</Text>
-                <Text className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider">Scoring & Tournament Platform</Text>
+                <Text className="text-xs font-black text-[#10B981] uppercase tracking-widest">Scoring & Tournament Platform</Text>
               </View>
               <Text className="text-sm font-semibold text-slate-300 text-center max-w-[280px] leading-5">
                 Sign in to manage team rosters, track career stats, host leagues, and sync match data.
@@ -77,10 +74,10 @@ export default function ProfileScreen() {
                 if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 await login();
               }}
-              className="bg-emerald-500 hover:bg-emerald-400 py-4 rounded-2xl items-center flex-row justify-center gap-3 shadow-xl shadow-emerald-500/30 active:scale-95"
+              className="bg-[#10B981] hover:bg-[#059669] py-4 rounded-2xl items-center flex-row justify-center gap-3 shadow-xl shadow-emerald-500/20 active:scale-95"
             >
               <Text className="text-xl">🔐</Text>
-              <Text className="text-black font-black text-lg">Sign In / Register</Text>
+              <Text className="text-[#050B08] font-black text-lg">Sign In / Register</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -110,9 +107,9 @@ export default function ProfileScreen() {
             </View>
             <TouchableOpacity
               onPress={() => handleNavigate("editProfile")}
-              className="bg-white/10 border border-white/15 rounded-xl px-3 py-1.5 active:opacity-80"
+              className="bg-[#10B981]/20 border border-[#10B981]/40 rounded-xl px-3 py-1.5 active:opacity-80"
             >
-              <Text className="text-white text-xs font-bold">Edit ✏️</Text>
+              <Text className="text-[#10B981] text-xs font-black">Edit ✏️</Text>
             </TouchableOpacity>
           </View>
 
@@ -121,18 +118,18 @@ export default function ProfileScreen() {
             intensity="heavy"
             radius="xl"
             padding="lg"
-            className="bg-[#121622] border-emerald-500/30 gap-4"
+            className="bg-[#0B1511] border-[#10B981]/30 gap-4 shadow-2xl"
           >
             <View className="flex-row items-center gap-4">
               {/* Avatar Ring */}
-              <View className="w-16 h-16 rounded-full bg-emerald-500 border-2 border-white items-center justify-center shadow-lg shadow-emerald-500/40">
-                <Text className="text-2xl font-black text-black">{initials}</Text>
+              <View className="w-16 h-16 rounded-full bg-[#10B981] border-2 border-white items-center justify-center shadow-lg shadow-emerald-500/30">
+                <Text className="text-2xl font-black text-[#050B08]">{initials}</Text>
               </View>
               <View className="flex-1 gap-0.5">
                 <View className="flex-row items-center gap-2">
                   <Text className="text-xl font-black text-white">{user?.name || "Cricket Pro Player"}</Text>
-                  <View className="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-full">
-                    <Text className="text-[10px] font-black text-emerald-400">PRO LEVEL 5</Text>
+                  <View className="bg-[#10B981]/20 border border-[#10B981]/40 px-2 py-0.5 rounded-full">
+                    <Text className="text-[10px] font-black text-[#10B981]">PRO LEVEL 5</Text>
                   </View>
                 </View>
                 <Text className="text-xs font-semibold text-slate-400">{user?.email || "cricketer@crickpro.com"}</Text>
@@ -140,32 +137,32 @@ export default function ProfileScreen() {
             </View>
 
             {/* Quick Stats Grid inside Passport */}
-            <View className="flex-row items-center justify-between bg-black/50 p-3 rounded-xl border border-white/10 pt-2">
+            <View className="flex-row items-center justify-between bg-[#060D0A] p-3.5 rounded-xl border border-white/5 pt-2">
               <View className="items-center">
-                <Text className="text-[9px] font-extrabold text-slate-400">MATCHES</Text>
+                <Text className="text-[9px] font-black text-slate-400 uppercase tracking-wider">MATCHES</Text>
                 <Text className="text-lg font-black text-white">14</Text>
               </View>
               <View className="w-px h-6 bg-white/10" />
               <View className="items-center">
-                <Text className="text-[9px] font-extrabold text-slate-400">RUNS</Text>
-                <Text className="text-lg font-black text-emerald-400">640</Text>
+                <Text className="text-[9px] font-black text-slate-400 uppercase tracking-wider">RUNS</Text>
+                <Text className="text-lg font-black text-[#10B981]">640</Text>
               </View>
               <View className="w-px h-6 bg-white/10" />
               <View className="items-center">
-                <Text className="text-[9px] font-extrabold text-slate-400">WICKETS</Text>
-                <Text className="text-lg font-black text-amber-400">34</Text>
+                <Text className="text-[9px] font-black text-slate-400 uppercase tracking-wider">WICKETS</Text>
+                <Text className="text-lg font-black text-[#FBBF24]">34</Text>
               </View>
               <View className="w-px h-6 bg-white/10" />
               <View className="items-center">
-                <Text className="text-[9px] font-extrabold text-slate-400">HIGH SCORE</Text>
-                <Text className="text-lg font-black text-purple-400">98*</Text>
+                <Text className="text-[9px] font-black text-slate-400 uppercase tracking-wider">HIGH SCORE</Text>
+                <Text className="text-lg font-black text-[#10B981]">98*</Text>
               </View>
             </View>
           </GlassCard>
 
           {/* CRICKET MANAGEMENT SECTION */}
           <View className="gap-2">
-            <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-wider px-1">Cricket Management</Text>
+            <Text className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Cricket Management</Text>
             {[
               { icon: "🤖", title: "CrickAI Coach Assistant", desc: "Ask rules, DLS calculations & tactical advice", screen: "aichat" },
               { icon: "👤", title: "Edit Player Profile", desc: "Update batting stance, bowling style & jersey", screen: "editProfile" },
@@ -178,10 +175,10 @@ export default function ProfileScreen() {
                 intensity="heavy"
                 padding="md"
                 radius="xl"
-                className="flex-row items-center gap-3.5 bg-[#121622]/90 border-white/10"
+                className="flex-row items-center gap-3.5 bg-[#0B1511] border-[#10B981]/20"
                 onPress={() => handleNavigate(item.screen)}
               >
-                <View className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/10">
+                <View className="w-10 h-10 rounded-xl bg-[#10B981]/15 items-center justify-center border border-[#10B981]/30">
                   <Text className="text-lg">{item.icon}</Text>
                 </View>
                 <View className="flex-1">
@@ -195,7 +192,7 @@ export default function ProfileScreen() {
 
           {/* APP PREFERENCES SECTION */}
           <View className="gap-2">
-            <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-wider px-1">App Preferences</Text>
+            <Text className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">App Preferences</Text>
             {[
               { icon: "🎨", title: "Theme & Display", desc: "Switch theme & accent colors", screen: "theme" },
               { icon: "🔔", title: "Match Alerts & Sounds", desc: "Configure scoring haptics & notifications", screen: "notifications" },
@@ -205,10 +202,10 @@ export default function ProfileScreen() {
                 intensity="heavy"
                 padding="md"
                 radius="xl"
-                className="flex-row items-center gap-3.5 bg-[#121622]/90 border-white/10"
+                className="flex-row items-center gap-3.5 bg-[#0B1511] border-[#10B981]/20"
                 onPress={() => handleNavigate(item.screen)}
               >
-                <View className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/10">
+                <View className="w-10 h-10 rounded-xl bg-[#10B981]/15 items-center justify-center border border-[#10B981]/30">
                   <Text className="text-lg">{item.icon}</Text>
                 </View>
                 <View className="flex-1">

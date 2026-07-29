@@ -66,9 +66,9 @@ export function GlassModal({
   const opacity = useSharedValue(0);
 
   const bgClasses = {
-    subtle: isDark ? "bg-white/[0.06]" : "bg-white/50",
-    medium: isDark ? "bg-white/[0.08]" : "bg-white/65",
-    high: isDark ? "bg-white/[0.10]" : "bg-white/80",
+    subtle: "bg-[#0B1511]",
+    medium: "bg-[#09120E]",
+    high: "bg-[#070E0B]",
   };
 
   const animatedContainerStyle = useAnimatedStyle(() => ({

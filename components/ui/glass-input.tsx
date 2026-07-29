@@ -50,16 +50,16 @@ export function GlassInput({
   const isDark = colorScheme === "dark";
 
   const bgClasses = {
-    subtle: "bg-white/50 dark:bg-white/[0.04]",
-    medium: "bg-white/60 dark:bg-white/[0.06]",
-    high: "bg-white/80 dark:bg-white/[0.10]",
+    subtle: "bg-[#0B1511]",
+    medium: "bg-[#09120E]",
+    high: "bg-[#070E0B]",
   };
 
   const borderClasses = cn(
     "border",
     error
-      ? "border-red-400 dark:border-red-500/50"
-      : "border-white/40 dark:border-white/[0.10]",
+      ? "border-red-500"
+      : "border-[#10B981]/30",
   );
 
   return (

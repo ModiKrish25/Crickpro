@@ -1,24 +1,19 @@
 /**
- * Matches & Leagues Screen - Premium Tournament Hub (CrickPro MLS UI)
+ * Matches & Leagues Screen - Premium Tournament Hub (Matches & Leagues Exact UI)
  * 
- * Design: High-impact glassmorphic cards, segmented view selector,
- * rich match cards, live fixtures, and tournament organizer tools.
+ * Design: Pitch dark emerald charcoal palette matching exact user screenshot mockup.
  */
-import { ScrollView, Text, View, TouchableOpacity, RefreshControl, Platform, Image } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, RefreshControl, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
 import { LeagueStandings } from "@/components/league-standings";
 import { LeagueFixtures, type LeagueFixture } from "@/components/league-fixtures";
-import { LeagueTeams, type LeagueTeam } from "@/components/league-teams";
-import { OrganizerDashboard } from "@/components/organizer-dashboard";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassInput } from "@/components/ui/glass-input";
-import { useResponsive } from "@/hooks/use-responsive";
 import { useScrollPadding } from "@/hooks/use-scroll-padding";
-import { useThemeContext } from "@/lib/theme-provider";
 import { trpc } from "@/lib/trpc";
 import { useAuthContext } from "@/lib/auth-context";
 
@@ -39,21 +34,17 @@ interface League {
 export default function LeaguesScreen() {
   const { paddingBottom } = useScrollPadding();
   const router = useRouter();
-  const r = useResponsive();
-  const { colorScheme } = useThemeContext();
   const { isAuthenticated } = useAuthContext();
   const [refreshing, setRefreshing] = useState(false);
   const [category, setCategory] = useState<MatchCategory>("all");
-  const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Form states
   const [leagueName, setLeagueName] = useState("");
   const [selectedFormat, setSelectedFormat] = useState<"round-robin" | "knockout" | "group-stage">("round-robin");
-  const [numTeams, setNumTeams] = useState("8");
 
   // Fetch leagues from backend
-  const { data: apiLeagues, refetch } = trpc.leagues.list.useQuery({ limit: 50, offset: 0 }, {
+  const { refetch } = trpc.leagues.list.useQuery({ limit: 50, offset: 0 }, {
     staleTime: 30_000, retry: 1, enabled: isAuthenticated,
   });
 
@@ -97,21 +88,21 @@ export default function LeaguesScreen() {
       >
         <View className="flex-1 gap-5 pt-2">
           
-          {/* HEADER */}
+          {/* HEADER (Exact User Screenshot Style) */}
           <View className="flex-row items-center justify-between px-1">
             <View className="gap-0.5">
               <Text className="text-3xl font-black text-white tracking-tight">Matches & Leagues</Text>
-              <Text className="text-xs font-semibold text-slate-400">Tournaments, Fixtures & Leaderboards</Text>
+              <Text className="text-xs font-bold text-slate-400">Tournaments, Fixtures & Leaderboards</Text>
             </View>
             <TouchableOpacity
               onPress={() => setShowCreateForm(!showCreateForm)}
-              className="bg-emerald-500 rounded-xl px-3.5 py-2 flex-row items-center gap-1.5 active:opacity-80"
+              className="bg-[#10B981] hover:bg-[#059669] rounded-xl px-4 py-2 flex-row items-center gap-1.5 active:scale-95 shadow-lg shadow-emerald-500/20"
             >
-              <Text className="text-black text-sm font-extrabold">+ Create</Text>
+              <Text className="text-[#050B08] text-sm font-black">+ Create</Text>
             </TouchableOpacity>
           </View>
 
-          {/* CATEGORY SELECTOR TABS */}
+          {/* CATEGORY SELECTOR TABS (Exact User Screenshot Style) */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}>
             {[
               { id: "all", label: "🔥 All Matches" },
@@ -128,17 +119,23 @@ export default function LeaguesScreen() {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setCategory(tab.id as MatchCategory);
                   }}
-                  className={`px-4 py-2 rounded-xl border ${active ? 'bg-emerald-500 border-emerald-400' : 'bg-white/5 border-white/10'}`}
+                  className={`px-4 py-2.5 rounded-xl border flex-row items-center transition-all active:scale-95 ${
+                    active
+                      ? "bg-[#10B981] border-[#10B981] shadow-md shadow-emerald-500/30"
+                      : "bg-[#0B1712] border-[#142820]"
+                  }`}
                 >
-                  <Text className={`text-xs font-black ${active ? 'text-black' : 'text-slate-300'}`}>{tab.label}</Text>
+                  <Text className={`text-xs font-black ${active ? "text-[#050B08]" : "text-[#CBD5E1]"}`}>
+                    {tab.label}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          {/* CREATE TOURNAMENT FORM (Modal overlay or expandable card) */}
+          {/* CREATE TOURNAMENT FORM */}
           {showCreateForm && (
-            <GlassCard intensity="heavy" radius="xl" padding="lg" className="bg-[#0F1420] border-emerald-500/30 gap-4">
+            <GlassCard intensity="heavy" radius="xl" padding="lg" className="bg-[#0B1511] border-[#10B981]/30 gap-4">
               <Text className="text-lg font-black text-white">Create New Tournament</Text>
               
               <View className="gap-1.5">
@@ -157,9 +154,9 @@ export default function LeaguesScreen() {
                     <TouchableOpacity
                       key={fmt.id}
                       onPress={() => setSelectedFormat(fmt.id as any)}
-                      className={`flex-1 py-2 rounded-lg border items-center ${selectedFormat === fmt.id ? 'bg-emerald-500/20 border-emerald-500' : 'bg-white/5 border-white/10'}`}
+                      className={`flex-1 py-2 rounded-lg border items-center ${selectedFormat === fmt.id ? 'bg-[#10B981]/20 border-[#10B981]' : 'bg-black/30 border-white/10'}`}
                     >
-                      <Text className={`text-xs font-bold ${selectedFormat === fmt.id ? 'text-emerald-400' : 'text-slate-400'}`}>{fmt.label}</Text>
+                      <Text className={`text-xs font-bold ${selectedFormat === fmt.id ? 'text-[#10B981]' : 'text-slate-400'}`}>{fmt.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -170,53 +167,55 @@ export default function LeaguesScreen() {
                   alert("Tournament created successfully!");
                   setShowCreateForm(false);
                 }}
-                className="bg-emerald-500 py-3 rounded-xl items-center mt-2"
+                className="bg-[#10B981] py-3 rounded-xl items-center mt-2"
               >
-                <Text className="text-black font-extrabold text-sm uppercase">Create Tournament</Text>
+                <Text className="text-[#050B08] font-black text-sm uppercase">Create Tournament</Text>
               </TouchableOpacity>
             </GlassCard>
           )}
 
-          {/* TOURNAMENT CARDS SECTION */}
+          {/* TOURNAMENT CARDS SECTION (Exact User Screenshot Style) */}
           {(category === "all" || category === "leagues") && (
             <View className="gap-3">
-              <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-wider px-1">Active Leagues & Tournaments</Text>
+              <Text className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">
+                ACTIVE LEAGUES & TOURNAMENTS
+              </Text>
               {mockLeagues.map((league) => (
                 <GlassCard
                   key={league.id}
                   intensity="heavy"
                   radius="xl"
                   padding="md"
-                  className="bg-[#121622]/90 border-white/15 gap-3"
-                  onPress={() => setSelectedLeague(league.id)}
+                  className="bg-[#0B1511]/95 border-[#10B981]/20 gap-3"
                 >
                   <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-2">
-                      <View className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 items-center justify-center">
-                        <Text className="text-sm">🏆</Text>
+                    <View className="flex-row items-center gap-2.5">
+                      <View className="w-9 h-9 rounded-xl bg-[#10B981]/20 border border-[#10B981]/40 items-center justify-center">
+                        <Text className="text-base">🏆</Text>
                       </View>
                       <View>
-                        <Text className="text-base font-black text-white">{league.name}</Text>
-                        <Text className="text-[11px] font-semibold text-slate-400">{league.format.toUpperCase()} • {league.totalTeams} TEAMS</Text>
+                        <Text className="text-lg font-black text-white tracking-tight">{league.name}</Text>
+                        <Text className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">{league.format.toUpperCase()} • {league.totalTeams} TEAMS</Text>
                       </View>
                     </View>
-                    <View className="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-md">
-                      <Text className="text-[10px] font-black text-emerald-400">{league.status}</Text>
+                    <View className="bg-[#10B981]/15 border border-[#10B981]/40 px-3 py-1 rounded-md">
+                      <Text className="text-[10px] font-black text-[#10B981] uppercase tracking-wider">{league.status}</Text>
                     </View>
                   </View>
 
-                  <View className="flex-row items-center justify-between bg-black/40 p-2.5 rounded-xl border border-white/5">
-                    <View className="align-center">
-                      <Text className="text-[10px] font-bold text-slate-400">PLAYED</Text>
-                      <Text className="text-sm font-black text-white">{league.matchesPlayed} Matches</Text>
+                  {/* Inner Stats Bar (Exact Match with Image) */}
+                  <View className="flex-row items-center justify-between bg-[#060D0A] p-3 rounded-xl border border-white/5">
+                    <View>
+                      <Text className="text-[10px] font-black text-slate-400 uppercase tracking-wider">PLAYED</Text>
+                      <Text className="text-base font-black text-white">{league.matchesPlayed} Matches</Text>
                     </View>
-                    <View className="align-center">
-                      <Text className="text-[10px] font-bold text-slate-400">REMAINING</Text>
-                      <Text className="text-sm font-black text-amber-400">{league.matchesRemaining} Matches</Text>
+                    <View>
+                      <Text className="text-[10px] font-black text-slate-400 uppercase tracking-wider">REMAINING</Text>
+                      <Text className="text-base font-black text-[#FBBF24]">{league.matchesRemaining} Matches</Text>
                     </View>
-                    <View className="align-center">
-                      <Text className="text-[10px] font-bold text-slate-400">START DATE</Text>
-                      <Text className="text-sm font-black text-slate-200">{league.startDate}</Text>
+                    <View>
+                      <Text className="text-[10px] font-black text-slate-400 uppercase tracking-wider">START DATE</Text>
+                      <Text className="text-base font-black text-white">{league.startDate}</Text>
                     </View>
                   </View>
                 </GlassCard>
@@ -227,7 +226,7 @@ export default function LeaguesScreen() {
           {/* FIXTURES & LIVE MATCHES SECTION */}
           {(category === "all" || category === "live" || category === "fixtures") && (
             <View className="gap-3">
-              <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-wider px-1">Live & Scheduled Matches</Text>
+              <Text className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Live & Scheduled Matches</Text>
               <LeagueFixtures fixtures={mockFixtures} onMatchPress={(f: LeagueFixture) => handleNav("/match/live")} />
             </View>
           )}
@@ -235,7 +234,7 @@ export default function LeaguesScreen() {
           {/* STANDINGS SECTION */}
           {(category === "all" || category === "standings") && (
             <View className="gap-3">
-              <Text className="text-xs font-extrabold text-slate-400 uppercase tracking-wider px-1">League Points Table</Text>
+              <Text className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">League Points Table</Text>
               <LeagueStandings teams={mockStandingsTeams} />
             </View>
           )}

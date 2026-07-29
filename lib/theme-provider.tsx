@@ -53,14 +53,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyScheme(colorScheme);
   }, [colorScheme, applyScheme]);
 
-  // Load persisted theme on mount (default strictly to "dark")
+  // Load persisted theme on mount (strictly forced to "dark")
   useEffect(() => {
-    loadThemePreference().then((preferred) => {
-      const scheme = preferred || "dark";
-      setColorSchemeState(scheme);
-      setIsUserSet(!!preferred);
-      applyScheme(scheme);
-    });
+    setColorSchemeState("dark");
+    applyScheme("dark");
   }, [applyScheme]);
 
   const setColorScheme = useCallback((scheme: ColorScheme) => {

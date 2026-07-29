@@ -1,13 +1,13 @@
 /**
- * Match Creation Screen - Multi-Step Flow with Dark Emerald Aesthetics
+ * Match Creation Screen - Pitch Dark Emerald Charcoal Palette (Matching Exact User Image Scheme)
  * 
  * Multi-Step Flow:
- * 1. Match Format
- * 2. Teams
- * 3. Venue & Details
- * 4. Toss
- * 5. Playing XI
- * 6. Start Match Summary
+ * 1. Match Format (T20, ODI, T10, The Hundred, Test, Custom)
+ * 2. Teams (Team 1, Team 2, Swap Teams)
+ * 3. Venue & Details (Venue name, balls/over, players/side)
+ * 4. Coin Toss (Winner, Bat/Bowl decision)
+ * 5. Playing XI Roster (Interactive XI list)
+ * 6. Start Match Summary (Launch live scoring)
  */
 import { ScrollView, Text, View, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
@@ -15,14 +15,12 @@ import { useRouter } from "expo-router";
 import { useState, useCallback } from "react";
 import * as Haptics from "expo-haptics";
 import { GlassCard } from "@/components/ui/glass-card";
-import { GlassButton } from "@/components/ui/glass-button";
 import { GlassInput } from "@/components/ui/glass-input";
-import { useResponsive } from "@/hooks/use-responsive";
 import { useScrollPadding } from "@/hooks/use-scroll-padding";
 import { trpc } from "@/lib/trpc";
 import { useAuthContext } from "@/lib/auth-context";
 
-import { MatchFormat as EngineMatchFormat, validateMatchInput, TossDecision, type MatchInputValidation } from "@/lib/cricket/advanced-rules-engine";
+import { MatchFormat as EngineMatchFormat, TossDecision } from "@/lib/cricket/advanced-rules-engine";
 
 function toEngineFormat(fmt: string): EngineMatchFormat {
   const map: Record<string, EngineMatchFormat> = {
@@ -43,32 +41,33 @@ interface FormatOption {
   label: string;
   overs: number;
   description: string;
+  icon: string;
+  tag: string;
   custom?: boolean;
   noOvers?: boolean;
 }
 
 const FORMAT_OPTIONS: FormatOption[] = [
-  { id: "T20", label: "T20", overs: 20, description: "20 overs per side • ~3 hrs" },
-  { id: "ODI", label: "ODI", overs: 50, description: "50 overs per side • ~8 hrs" },
-  { id: "T10", label: "T10", overs: 10, description: "10 overs per side • ~1.5 hrs" },
-  { id: "the_hundred", label: "The Hundred", overs: 100, description: "100 balls per side • ~2.5 hrs", noOvers: true },
-  { id: "test", label: "Test", overs: 0, description: "Unlimited overs • Multi-day", noOvers: true },
-  { id: "custom", label: "Custom", overs: 0, description: "Custom overs & rules", custom: true },
+  { id: "T20", label: "T20 Match", overs: 20, description: "20 overs per side • ~3 hrs", icon: "⚡", tag: "POPULAR" },
+  { id: "ODI", label: "One Day International", overs: 50, description: "50 overs per side • ~8 hrs", icon: "🏏", tag: "CLASSIC" },
+  { id: "T10", label: "T10 League", overs: 10, description: "10 overs per side • ~1.5 hrs", icon: "💥", tag: "EXPRESS" },
+  { id: "the_hundred", label: "The Hundred", overs: 100, description: "100 balls per side • ~2.5 hrs", icon: "💯", tag: "100 BALLS", noOvers: true },
+  { id: "test", label: "Test Match", overs: 0, description: "Unlimited overs • Multi-day", icon: "🛡️", tag: "RED BALL", noOvers: true },
+  { id: "custom", label: "Custom Format", overs: 0, description: "Custom overs & rules", icon: "⚙️", tag: "BUILD YOURS", custom: true },
 ];
 
 const STEPS = [
-  { id: 1, name: "Format" },
-  { id: 2, name: "Teams" },
-  { id: 3, name: "Venue" },
-  { id: 4, name: "Toss" },
-  { id: 5, name: "Roster" },
-  { id: 6, name: "Start" },
+  { id: 1, name: "Format", icon: "🏆" },
+  { id: 2, name: "Teams", icon: "🛡️" },
+  { id: 3, name: "Venue", icon: "🏟️" },
+  { id: 4, name: "Toss", icon: "🪙" },
+  { id: 5, name: "Roster", icon: "📋" },
+  { id: 6, name: "Start", icon: "🚀" },
 ];
 
 export default function CreateMatchScreen() {
   const { paddingBottom } = useScrollPadding();
   const router = useRouter();
-  const r = useResponsive();
   const { isAuthenticated } = useAuthContext();
   const createMatchMutation = trpc.match.create.useMutation();
 
@@ -101,6 +100,13 @@ export default function CreateMatchScreen() {
     if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     cb();
   }, []);
+
+  const swapTeams = useCallback(() => {
+    handleAction(() => {
+      setTeam1Name(team2Name);
+      setTeam2Name(team1Name);
+    });
+  }, [team1Name, team2Name, handleAction]);
 
   const handleNextStep = async () => {
     if (Platform.OS !== "web") await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -193,12 +199,24 @@ export default function CreateMatchScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         {/* Step Progress Bar Header */}
-        <View className="pt-2 pb-3 gap-2">
+        <View className="pt-2 pb-4 gap-3">
           <View className="flex-row items-center justify-between">
-            <Text className="text-xs font-black text-indigo-400 uppercase tracking-widest">
-              STEP {currentStep} OF 6 • {STEPS[currentStep - 1].name.toUpperCase()}
-            </Text>
-            <Text className="text-xs font-bold text-slate-300">{Math.round((currentStep / 6) * 100)}% Complete</Text>
+            <View className="flex-row items-center gap-2">
+              <View className="w-8 h-8 rounded-full bg-[#10B981]/20 border border-[#10B981]/40 items-center justify-center">
+                <Text className="text-sm">{STEPS[currentStep - 1].icon}</Text>
+              </View>
+              <View>
+                <Text className="text-[10px] font-black text-[#10B981] uppercase tracking-widest">
+                  STEP {currentStep} OF 6
+                </Text>
+                <Text className="text-sm font-black text-white tracking-tight">
+                  {STEPS[currentStep - 1].name} Setup
+                </Text>
+              </View>
+            </View>
+            <View className="bg-[#0B1712] border border-[#142820] px-3 py-1 rounded-full">
+              <Text className="text-xs font-black text-[#10B981]">{Math.round((currentStep / 6) * 100)}% Complete</Text>
+            </View>
           </View>
           
           {/* Progress Chips */}
@@ -206,8 +224,10 @@ export default function CreateMatchScreen() {
             {STEPS.map((s) => (
               <View
                 key={s.id}
-                className={`h-1.5 flex-1 rounded-full ${
-                  s.id <= currentStep ? "bg-gradient-to-r from-blue-500 to-indigo-600 shadow-md shadow-indigo-500/50" : "bg-white/10"
+                className={`h-2 flex-1 rounded-full transition-all ${
+                  s.id <= currentStep
+                    ? "bg-[#10B981] shadow-lg shadow-emerald-500/40"
+                    : "bg-white/10"
                 }`}
               />
             ))}
@@ -220,11 +240,21 @@ export default function CreateMatchScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="flex-1 gap-5">
+            
             {/* STEP 1: MATCH FORMAT */}
             {currentStep === 1 && (
-              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5 bg-[#1C1C1E] border-white/15">
-                <Text className="text-xl font-black text-white tracking-tight">Select Match Format</Text>
-                <View className="flex-row flex-wrap gap-2.5">
+              <GlassCard intensity="heavy" padding="xl" radius="xl" className="gap-5 bg-[#0B1511] border-[#10B981]/20 shadow-2xl">
+                <View className="flex-row items-center justify-between border-b border-white/10 pb-3">
+                  <View className="gap-0.5">
+                    <Text className="text-xl font-black text-white tracking-tight">Select Match Format</Text>
+                    <Text className="text-xs font-semibold text-slate-400">Choose overs structure and match duration</Text>
+                  </View>
+                  <View className="bg-[#10B981]/20 border border-[#10B981]/40 px-2.5 py-1 rounded-full">
+                    <Text className="text-[10px] font-black text-[#10B981]">OFFICIAL RULES</Text>
+                  </View>
+                </View>
+
+                <View className="flex-row flex-wrap gap-3">
                   {FORMAT_OPTIONS.map((fmt) => {
                     const selected = format === fmt.id;
                     return (
@@ -234,16 +264,22 @@ export default function CreateMatchScreen() {
                           setFormat(fmt.id);
                           if (!fmt.custom && !fmt.noOvers) setMaxOvers(String(fmt.overs));
                         })}
-                        className={`rounded-2xl p-4 min-w-[47%] border ${
+                        className={`rounded-2xl p-4 min-w-[47%] flex-1 border transition-all active:scale-95 ${
                           selected
-                            ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-indigo-400 shadow-lg shadow-indigo-500/50"
-                            : "bg-[#2C2C2E] border-white/15 active:opacity-80"
+                            ? "bg-[#0B1D15] border-[#10B981] shadow-xl shadow-emerald-500/20"
+                            : "bg-[#060D0A] border-white/10 hover:border-[#10B981]/40"
                         }`}
                       >
+                        <View className="flex-row items-center justify-between mb-2">
+                          <Text className="text-2xl">{fmt.icon}</Text>
+                          <View className={`px-2 py-0.5 rounded-full border ${selected ? "bg-[#10B981]/30 border-[#10B981]" : "bg-white/10 border-white/15"}`}>
+                            <Text className={`text-[9px] font-black ${selected ? "text-[#10B981]" : "text-slate-400"}`}>{fmt.tag}</Text>
+                          </View>
+                        </View>
                         <Text className={`font-black text-lg ${selected ? "text-white" : "text-slate-100"}`}>
                           {fmt.label}
                         </Text>
-                        <Text className={`text-xs mt-1 font-bold ${selected ? "text-white/80" : "text-slate-400"}`}>
+                        <Text className={`text-xs mt-1 font-bold leading-relaxed ${selected ? "text-emerald-300" : "text-slate-400"}`}>
                           {fmt.description}
                         </Text>
                       </TouchableOpacity>
@@ -252,7 +288,7 @@ export default function CreateMatchScreen() {
                 </View>
 
                 {format === "custom" && (
-                  <View className="gap-1 mt-2">
+                  <View className="gap-2 mt-2 bg-[#060D0A] border border-[#10B981]/30 p-4 rounded-2xl">
                     <GlassInput
                       label="Custom Overs Per Side"
                       placeholder="e.g. 15"
@@ -271,12 +307,24 @@ export default function CreateMatchScreen() {
 
             {/* STEP 2: TEAMS */}
             {currentStep === 2 && (
-              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5 bg-[#1C1C1E] border-white/15">
-                <Text className="text-xl font-black text-white tracking-tight">Team Identities</Text>
+              <GlassCard intensity="heavy" padding="xl" radius="xl" className="gap-5 bg-[#0B1511] border-[#10B981]/20 shadow-2xl">
+                <View className="flex-row items-center justify-between border-b border-white/10 pb-3">
+                  <View className="gap-0.5">
+                    <Text className="text-xl font-black text-white tracking-tight">Team Identities</Text>
+                    <Text className="text-xs font-semibold text-slate-400">Set team names and batting order for toss</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={swapTeams}
+                    className="flex-row items-center gap-1.5 bg-[#10B981]/20 border border-[#10B981]/40 px-3 py-1.5 rounded-full active:scale-95"
+                  >
+                    <Text className="text-xs font-black text-[#10B981]">⇄ Swap Teams</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <View className="gap-4">
-                  <View className="gap-1">
+                  <View className="gap-1.5">
+                    <Text className="text-xs font-black text-[#10B981] uppercase tracking-wider">TEAM 1 (BATTING FIRST AT START)</Text>
                     <GlassInput
-                      label="Team 1 (Batting First)"
                       placeholder="e.g. Thunder Warriors"
                       value={team1Name}
                       onChangeText={setTeam1Name}
@@ -285,9 +333,15 @@ export default function CreateMatchScreen() {
                     {fieldErrors.team1 && <Text className="text-xs text-red-400 px-1 font-semibold">{fieldErrors.team1}</Text>}
                   </View>
 
-                  <View className="gap-1">
+                  <View className="items-center my-1">
+                    <View className="w-8 h-8 rounded-full bg-[#10B981]/20 border border-[#10B981]/40 items-center justify-center">
+                      <Text className="text-xs font-black text-[#10B981]">VS</Text>
+                    </View>
+                  </View>
+
+                  <View className="gap-1.5">
+                    <Text className="text-xs font-black text-[#10B981] uppercase tracking-wider">TEAM 2 (BOWLING FIRST AT START)</Text>
                     <GlassInput
-                      label="Team 2 (Batting Second)"
                       placeholder="e.g. Phoenix Rising"
                       value={team2Name}
                       onChangeText={setTeam2Name}
@@ -301,30 +355,62 @@ export default function CreateMatchScreen() {
 
             {/* STEP 3: VENUE & DETAILS */}
             {currentStep === 3 && (
-              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5 bg-[#1C1C1E] border-white/15">
-                <Text className="text-xl font-black text-white tracking-tight">Venue & Details</Text>
+              <GlassCard intensity="heavy" padding="xl" radius="xl" className="gap-5 bg-[#0B1511] border-[#10B981]/20 shadow-2xl">
+                <View className="border-b border-white/10 pb-3 gap-0.5">
+                  <Text className="text-xl font-black text-white tracking-tight">Venue & Match Settings</Text>
+                  <Text className="text-xs font-semibold text-slate-400">Enter ground details and match rules</Text>
+                </View>
+
                 <GlassInput
-                  label="Venue Name"
-                  placeholder="e.g. Central Park Ground"
+                  label="Stadium / Ground Name"
+                  placeholder="e.g. Central Park Ground, NY"
                   value={venue}
                   onChangeText={setVenue}
                   icon="🏟️"
                 />
 
+                {/* Popular Venues Suggestions */}
+                <View className="gap-2">
+                  <Text className="text-xs font-bold text-slate-400">Quick Venue Presets:</Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {["Central Park Oval", "Lord's Cricket Ground", "Eden Gardens", "Melbourne Oval"].map((preset) => (
+                      <TouchableOpacity
+                        key={preset}
+                        onPress={() => setVenue(preset)}
+                        className={`px-3 py-1.5 rounded-full border text-xs font-bold ${
+                          venue === preset
+                            ? "bg-[#10B981]/20 border-[#10B981] text-[#10B981]"
+                            : "bg-[#060D0A] border-white/10 text-slate-300 hover:bg-white/10"
+                        }`}
+                      >
+                        <Text className={`text-xs font-bold ${venue === preset ? "text-[#10B981]" : "text-slate-300"}`}>
+                          📍 {preset}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
                 <TouchableOpacity
-                  className="bg-[#2C2C2E] border border-white/15 rounded-2xl p-4 flex-row items-center justify-between"
+                  className="bg-[#060D0A] border border-[#10B981]/20 rounded-2xl p-4 flex-row items-center justify-between active:opacity-80 mt-2"
                   onPress={() => handleAction(() => setShowAdvanced(!showAdvanced))}
                 >
-                  <Text className="text-sm font-bold text-white">Advanced Rules (Balls & Players)</Text>
-                  <Text className="text-xs font-bold text-indigo-400">{showAdvanced ? "Hide ▲" : "Show ▼"}</Text>
+                  <View className="flex-row items-center gap-2.5">
+                    <Text className="text-lg">⚙️</Text>
+                    <View>
+                      <Text className="text-sm font-black text-white">Advanced Rules (Balls & Players)</Text>
+                      <Text className="text-xs font-semibold text-slate-400">Custom balls per over and roster limit</Text>
+                    </View>
+                  </View>
+                  <Text className="text-xs font-black text-[#10B981]">{showAdvanced ? "Hide ▲" : "Configure ▼"}</Text>
                 </TouchableOpacity>
 
                 {showAdvanced && (
-                  <View className="gap-3 bg-black/40 p-4 rounded-2xl border border-white/10">
+                  <View className="gap-3 bg-[#050B08] p-4 rounded-2xl border border-white/10">
                     <View className="gap-1">
-                      <Text className="text-xs font-bold text-slate-400">Balls per over</Text>
+                      <Text className="text-xs font-bold text-slate-300">Balls Per Over (Default: 6)</Text>
                       <TextInput
-                        className="bg-[#2C2C2E] text-white border border-white/15 rounded-xl p-3 font-bold"
+                        className="bg-[#0B1511] text-white border border-[#10B981]/30 rounded-xl p-3 font-extrabold text-base"
                         value={ballsPerOver}
                         onChangeText={setBallsPerOver}
                         keyboardType="numeric"
@@ -332,9 +418,9 @@ export default function CreateMatchScreen() {
                     </View>
 
                     <View className="gap-1">
-                      <Text className="text-xs font-bold text-slate-400">Players per side</Text>
+                      <Text className="text-xs font-bold text-slate-300">Players Per Side (Default: 11)</Text>
                       <TextInput
-                        className="bg-[#2C2C2E] text-white border border-white/15 rounded-xl p-3 font-bold"
+                        className="bg-[#0B1511] text-white border border-[#10B981]/30 rounded-xl p-3 font-extrabold text-base"
                         value={playersPerSide}
                         onChangeText={setPlayersPerSide}
                         keyboardType="numeric"
@@ -345,144 +431,173 @@ export default function CreateMatchScreen() {
               </GlassCard>
             )}
 
-            {/* STEP 4: TOSS */}
+            {/* STEP 4: COIN TOSS */}
             {currentStep === 4 && (
-              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5 items-center text-center bg-[#1C1C1E] border-white/15">
-                <Text className="text-xl font-black text-white tracking-tight">Coin Toss</Text>
-                <View className="w-16 h-16 rounded-full bg-indigo-500/20 border-2 border-indigo-400 items-center justify-center">
-                  <Text className="text-2xl">🪙</Text>
-                </View>
-                
-                <Text className="text-sm font-bold text-slate-300">Who won the toss?</Text>
-                <View className="flex-row gap-3 w-full">
-                  <TouchableOpacity
-                    className={`flex-1 p-4 rounded-2xl border items-center ${
-                      tossWinner === team1Name ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-indigo-400 shadow-md shadow-indigo-500/40" : "bg-[#2C2C2E] border-white/15"
-                    }`}
-                    onPress={() => handleAction(() => setTossWinner(team1Name))}
-                  >
-                    <Text className={`font-bold ${tossWinner === team1Name ? "text-white" : "text-slate-200"}`}>
-                      {team1Name}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    className={`flex-1 p-4 rounded-2xl border items-center ${
-                      tossWinner === team2Name ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-indigo-400 shadow-md shadow-indigo-500/40" : "bg-[#2C2C2E] border-white/15"
-                    }`}
-                    onPress={() => handleAction(() => setTossWinner(team2Name))}
-                  >
-                    <Text className={`font-bold ${tossWinner === team2Name ? "text-white" : "text-slate-200"}`}>
-                      {team2Name}
-                    </Text>
-                  </TouchableOpacity>
+              <GlassCard intensity="heavy" padding="xl" radius="xl" className="gap-5 items-center bg-[#0B1511] border-[#10B981]/20 shadow-2xl">
+                <View className="w-full border-b border-white/10 pb-3 items-center gap-0.5">
+                  <Text className="text-xl font-black text-white tracking-tight">Coin Toss</Text>
+                  <Text className="text-xs font-semibold text-slate-400">Select toss winner and elected decision</Text>
                 </View>
 
-                <Text className="text-sm font-bold text-slate-300 mt-2">Opted to</Text>
-                <View className="flex-row gap-3 w-full">
-                  <TouchableOpacity
-                    className={`flex-1 p-3 rounded-xl border items-center ${
-                      tossDecision === TossDecision.BAT ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-indigo-400 shadow-md shadow-indigo-500/40" : "bg-[#2C2C2E] border-white/15"
-                    }`}
-                    onPress={() => handleAction(() => setTossDecision(TossDecision.BAT))}
-                  >
-                    <Text className={`font-bold ${tossDecision === TossDecision.BAT ? "text-white" : "text-slate-200"}`}>
-                      🏏 Bat First
-                    </Text>
-                  </TouchableOpacity>
+                {/* Animated Coin Badge */}
+                <View className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 border-4 border-yellow-200 items-center justify-center shadow-xl shadow-amber-500/30 my-1">
+                  <Text className="text-3xl">🪙</Text>
+                </View>
 
-                  <TouchableOpacity
-                    className={`flex-1 p-3 rounded-xl border items-center ${
-                      tossDecision === TossDecision.BOWL ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-indigo-400 shadow-md shadow-indigo-500/40" : "bg-[#2C2C2E] border-white/15"
-                    }`}
-                    onPress={() => handleAction(() => setTossDecision(TossDecision.BOWL))}
-                  >
-                    <Text className={`font-bold ${tossDecision === TossDecision.BOWL ? "text-white" : "text-slate-200"}`}>
-                      ⚾ Bowl First
-                    </Text>
-                  </TouchableOpacity>
+                <View className="w-full gap-2">
+                  <Text className="text-xs font-black text-[#10B981] uppercase tracking-wider text-center">WHO WON THE TOSS?</Text>
+                  <View className="flex-row gap-3 w-full">
+                    {[team1Name, team2Name].map((tName) => {
+                      const isWinner = tossWinner === tName || (!tossWinner && tName === team1Name);
+                      return (
+                        <TouchableOpacity
+                          key={tName}
+                          className={`flex-1 p-4 rounded-2xl border items-center gap-1 transition-all active:scale-95 ${
+                            isWinner
+                              ? "bg-[#10B981] border-[#10B981] shadow-lg shadow-emerald-500/20"
+                              : "bg-[#060D0A] border-white/10 hover:border-white/30"
+                          }`}
+                          onPress={() => handleAction(() => setTossWinner(tName))}
+                        >
+                          <Text className="text-lg">🛡️</Text>
+                          <Text className={`font-black text-sm text-center ${isWinner ? "text-[#050B08]" : "text-slate-300"}`}>
+                            {tName}
+                          </Text>
+                          {isWinner && <Text className="text-[10px] font-black text-[#050B08]">✓ TOSS WINNER</Text>}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View className="w-full gap-2 mt-2">
+                  <Text className="text-xs font-black text-[#10B981] uppercase tracking-wider text-center">OPTED TO</Text>
+                  <View className="flex-row gap-3 w-full">
+                    <TouchableOpacity
+                      className={`flex-1 p-4 rounded-2xl border items-center flex-row justify-center gap-2 active:scale-95 ${
+                        tossDecision === TossDecision.BAT
+                          ? "bg-[#10B981] border-[#10B981] shadow-lg shadow-emerald-500/20"
+                          : "bg-[#060D0A] border-white/10"
+                      }`}
+                      onPress={() => handleAction(() => setTossDecision(TossDecision.BAT))}
+                    >
+                      <Text className="text-lg">🏏</Text>
+                      <Text className={`font-black text-base ${tossDecision === TossDecision.BAT ? "text-[#050B08]" : "text-slate-300"}`}>
+                        Bat First
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      className={`flex-1 p-4 rounded-2xl border items-center flex-row justify-center gap-2 active:scale-95 ${
+                        tossDecision === TossDecision.BOWL
+                          ? "bg-[#10B981] border-[#10B981] shadow-lg shadow-emerald-500/20"
+                          : "bg-[#060D0A] border-white/10"
+                      }`}
+                      onPress={() => handleAction(() => setTossDecision(TossDecision.BOWL))}
+                    >
+                      <Text className="text-lg">⚾</Text>
+                      <Text className={`font-black text-base ${tossDecision === TossDecision.BOWL ? "text-[#050B08]" : "text-slate-300"}`}>
+                        Bowl First
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </GlassCard>
             )}
 
             {/* STEP 5: PLAYING SQUAD */}
             {currentStep === 5 && (
-              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-4 bg-[#1C1C1E] border-white/15">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-xl font-black text-white">
-                    {targetPlayerCount === 11 ? "Playing XI" : `Playing ${targetPlayerCount}`}
-                  </Text>
-                  <View className="bg-indigo-500/20 rounded-full px-3 py-1 border border-indigo-400/40">
-                    <Text className="text-xs font-black text-indigo-400">
-                      {targetPlayerCount}/{targetPlayerCount} SELECTED
+              <GlassCard intensity="heavy" padding="xl" radius="xl" className="gap-4 bg-[#0B1511] border-[#10B981]/20 shadow-2xl">
+                <View className="flex-row items-center justify-between border-b border-white/10 pb-3">
+                  <View>
+                    <Text className="text-xl font-black text-white">
+                      {targetPlayerCount === 11 ? "Playing XI Squad" : `Playing ${targetPlayerCount} Squad`}
+                    </Text>
+                    <Text className="text-xs font-semibold text-slate-400">Confirmed lineup for starting match</Text>
+                  </View>
+                  <View className="bg-[#10B981]/20 rounded-full px-3 py-1 border border-[#10B981]/40">
+                    <Text className="text-xs font-black text-[#10B981]">
+                      {targetPlayerCount}/{targetPlayerCount} CONFIRMED
                     </Text>
                   </View>
                 </View>
 
                 <GlassInput
-                  placeholder="Search roster players..."
+                  placeholder="Search player name or role..."
                   value={searchRoster}
                   onChangeText={setSearchRoster}
                   icon="🔍"
                 />
 
                 <View className="gap-2 mt-1">
-                  {rosterNames.map((name, i) => (
-                    <View key={name} className="bg-[#2C2C2E] border border-white/15 rounded-xl p-3 flex-row items-center justify-between">
-                      <View className="flex-row items-center gap-3">
-                        <View className="w-8 h-8 rounded-full bg-indigo-500/20 items-center justify-center">
-                          <Text className="text-xs font-bold text-indigo-300">{i + 1}</Text>
+                  {rosterNames
+                    .filter((n) => n.toLowerCase().includes(searchRoster.toLowerCase()))
+                    .map((name, i) => (
+                      <View key={name} className="bg-[#060D0A] border border-white/10 rounded-xl p-3.5 flex-row items-center justify-between">
+                        <View className="flex-row items-center gap-3">
+                          <View className="w-8 h-8 rounded-full bg-[#10B981]/20 border border-[#10B981]/40 items-center justify-center">
+                            <Text className="text-xs font-black text-[#10B981]">{i + 1}</Text>
+                          </View>
+                          <Text className="text-sm font-black text-white">{name}</Text>
                         </View>
-                        <Text className="text-sm font-bold text-white">{name}</Text>
+                        <View className="flex-row items-center gap-2">
+                          <View className="bg-white/10 px-2 py-0.5 rounded">
+                            <Text className="text-[10px] font-black text-slate-300">CONFIRMED</Text>
+                          </View>
+                          <View className="w-6 h-6 rounded-md bg-[#10B981] items-center justify-center">
+                            <Text className="text-xs text-[#050B08] font-black">✓</Text>
+                          </View>
+                        </View>
                       </View>
-                      <View className="w-5 h-5 rounded-md bg-indigo-500 items-center justify-center">
-                        <Text className="text-xs text-white font-black">✓</Text>
-                      </View>
-                    </View>
-                  ))}
+                    ))}
                 </View>
               </GlassCard>
             )}
 
             {/* STEP 6: START MATCH SUMMARY */}
             {currentStep === 6 && (
-              <GlassCard intensity="high" padding="xl" radius="xl" className="gap-5 bg-[#1C1C1E] border-white/15">
-                <Text className="text-xl font-black text-white tracking-tight">Match Ready</Text>
+              <GlassCard intensity="heavy" padding="xl" radius="xl" className="gap-5 bg-[#0B1511] border-[#10B981]/20 shadow-2xl">
+                <View className="border-b border-white/10 pb-3 gap-0.5">
+                  <Text className="text-xl font-black text-white tracking-tight">Match Ready to Launch</Text>
+                  <Text className="text-xs font-semibold text-slate-400">Review configuration before starting live scoring</Text>
+                </View>
                 
-                <View className="bg-[#2C2C2E] border border-white/15 rounded-2xl p-4 gap-3">
-                  <View className="flex-row justify-between border-b border-white/10 pb-2">
-                    <Text className="text-xs font-bold text-slate-400">FORMAT</Text>
-                    <Text className="text-sm font-extrabold text-indigo-400">{format} ({maxOvers} Overs)</Text>
+                <View className="bg-[#060D0A] border border-white/10 rounded-2xl p-5 gap-3.5">
+                  <View className="flex-row items-center justify-between border-b border-white/10 pb-3">
+                    <Text className="text-xs font-black text-slate-400 uppercase tracking-wider">FORMAT</Text>
+                    <View className="bg-[#10B981]/20 border border-[#10B981]/40 px-3 py-1 rounded-full">
+                      <Text className="text-sm font-black text-[#10B981]">{format} ({maxOvers} Overs)</Text>
+                    </View>
                   </View>
 
-                  <View className="flex-row justify-between border-b border-white/10 pb-2">
-                    <Text className="text-xs font-bold text-slate-400">TEAMS</Text>
-                    <Text className="text-sm font-extrabold text-white">{team1Name} vs {team2Name}</Text>
+                  <View className="flex-row items-center justify-between border-b border-white/10 pb-3">
+                    <Text className="text-xs font-black text-slate-400 uppercase tracking-wider">TEAMS</Text>
+                    <Text className="text-sm font-black text-white">{team1Name} <Text className="text-[#10B981]">vs</Text> {team2Name}</Text>
                   </View>
 
-                  <View className="flex-row justify-between border-b border-white/10 pb-2">
-                    <Text className="text-xs font-bold text-slate-400">PLAYERS PER SIDE</Text>
-                    <Text className="text-sm font-extrabold text-white">{targetPlayerCount} a-side ({ballsPerOver || "6"} b/ov)</Text>
+                  <View className="flex-row items-center justify-between border-b border-white/10 pb-3">
+                    <Text className="text-xs font-black text-slate-400 uppercase tracking-wider">RULES & ROSTER</Text>
+                    <Text className="text-sm font-black text-white">{targetPlayerCount} Players ({ballsPerOver || "6"} b/ov)</Text>
                   </View>
 
-                  <View className="flex-row justify-between border-b border-white/10 pb-2">
-                    <Text className="text-xs font-bold text-slate-400">VENUE</Text>
-                    <Text className="text-sm font-extrabold text-white">{venue || "Central Park Ground"}</Text>
+                  <View className="flex-row items-center justify-between border-b border-white/10 pb-3">
+                    <Text className="text-xs font-black text-slate-400 uppercase tracking-wider">VENUE</Text>
+                    <Text className="text-sm font-black text-white">📍 {venue || "Central Park Ground"}</Text>
                   </View>
 
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs font-bold text-slate-400">TOSS</Text>
-                    <Text className="text-sm font-extrabold text-amber-400">{tossWinner || team1Name} opted to {tossDecision}</Text>
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-xs font-black text-slate-400 uppercase tracking-wider">TOSS RESULT</Text>
+                    <Text className="text-sm font-black text-[#FBBF24]">🪙 {tossWinner || team1Name} opted to {tossDecision}</Text>
                   </View>
                 </View>
 
                 <TouchableOpacity
                   disabled={isSubmitting}
-                  className="bg-gradient-to-r from-blue-500 to-indigo-600 border border-indigo-400 rounded-2xl py-4 items-center shadow-lg shadow-indigo-500/50 active:scale-95"
+                  className="bg-[#10B981] hover:bg-[#059669] border border-emerald-300 rounded-2xl py-4 items-center shadow-xl shadow-emerald-500/20 active:scale-95 mt-2"
                   onPress={handleStartMatch}
                 >
-                  <Text className="text-white font-black text-lg uppercase tracking-wider">
-                    {isSubmitting ? "Starting..." : "🚀 Launch Live Match"}
+                  <Text className="text-[#050B08] font-black text-lg uppercase tracking-wider">
+                    {isSubmitting ? "Initializing..." : "🚀 Launch Live Scoring"}
                   </Text>
                 </TouchableOpacity>
               </GlassCard>
@@ -491,10 +606,10 @@ export default function CreateMatchScreen() {
         </ScrollView>
 
         {/* Sticky Bottom Navigation Buttons */}
-        <View className="absolute bottom-4 left-4 right-4 flex-row gap-3">
+        <View className="absolute bottom-4 left-4 right-4 flex-row gap-3 z-50">
           <TouchableOpacity
             onPress={handlePrevStep}
-            className="flex-1 bg-[#2C2C2E] border border-white/20 py-3.5 rounded-2xl items-center active:scale-95"
+            className="flex-1 bg-[#060D0A] border border-white/20 py-4 rounded-2xl items-center active:scale-95 shadow-lg"
           >
             <Text className="text-white font-extrabold text-sm">
               {currentStep === 1 ? "Cancel" : "← Back"}
@@ -504,9 +619,9 @@ export default function CreateMatchScreen() {
           {currentStep < 6 && (
             <TouchableOpacity
               onPress={handleNextStep}
-              className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 border border-indigo-400 py-3.5 rounded-2xl items-center shadow-lg shadow-indigo-500/50 active:scale-95"
+              className="flex-1 bg-[#10B981] hover:bg-[#059669] border border-emerald-300 py-4 rounded-2xl items-center shadow-xl shadow-emerald-500/20 active:scale-95"
             >
-              <Text className="text-white font-black text-sm">
+              <Text className="text-[#050B08] font-black text-sm uppercase tracking-wider">
                 Next Step →
               </Text>
             </TouchableOpacity>

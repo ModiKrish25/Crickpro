@@ -109,8 +109,8 @@ export function useMatchState() {
       fallOfWickets: currentInnings.fallOfWickets,
       currentRunRate: engine.getCurrentRunRate(currentInnings),
       requiredRunRate: engine.getRequiredRunRate(currentInnings),
-      projectedScore: currentInnings.totalOvers > 0
-        ? Math.round((currentInnings.totalRuns / currentInnings.totalOvers) * matchState.maxOvers)
+      projectedScore: currentInnings.totalBalls > 0
+        ? Math.round((currentInnings.totalRuns / currentInnings.totalBalls) * (matchState.maxOvers * (matchState.ballsPerOver || 6)))
         : 0,
       isSecondInnings: matchState.currentInnings === 2,
       isInningsComplete: currentInnings.isComplete,
@@ -195,6 +195,12 @@ export function useMatchState() {
   const setBattingOrder = useCallback((playerNames: string[]) => {
     engineRef.current?.setBattingOrder(playerNames);
     refresh();
+  }, [refresh]);
+
+  const setNextBatter = useCallback((batterName: string) => {
+    const result = engineRef.current?.setNextBatter(batterName);
+    if (result) refresh();
+    return result;
   }, [refresh]);
 
   const getPendingBatterNames = useCallback((): string[] => {
@@ -310,6 +316,7 @@ export function useMatchState() {
     setOpeningBatters,
     setCurrentBowler,
     setBattingOrder,
+    setNextBatter,
     getPendingBatterNames,
 
     // Scoring
