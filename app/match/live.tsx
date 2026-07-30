@@ -33,6 +33,7 @@ import { useMatchWebSocket } from "@/hooks/use-match-websocket";
 import { ShareScorecardModal } from "@/components/share-scorecard-modal";
 import type { ShareScorecardData } from "@/components/scorecard-share";
 import { GlassCard } from "@/components/ui/glass-card";
+import { FullScorecardView } from "@/components/full-scorecard-view";
 import { LiquidGlassOverlay } from "@/components/ui/liquid-glass-overlay";
 type MatchPhase = "pre-match" | "lineup" | "toss" | "innings-1" | "innings-2" | "result" | "completed";
 
@@ -205,65 +206,61 @@ export default function LiveMatchScreen() {
   const handleEndInnings = async () => {
     if (Platform.OS !== "web") await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     endInnings();
-    setInningBreak(true);
     refresh();
-    if (isMatchComplete()) setPhase("result");
-    else {
-      timeoutRef.current = setTimeout(() => {
-        setPhase("innings-2");
-        setInningBreak(false);
-        const innings1BattingTeam = tossDecision === TossDecision.BAT ? (tossWinner || team1) : (tossWinner === team1 ? team2 : team1);
-        const innings2BattingTeam = innings1BattingTeam === team1 ? team2 : team1;
-        const bowlingTeam = innings2BattingTeam === team1 ? team2 : team1;
-        const battingLineup = innings2BattingTeam === team1 ? team1Lineup : team2Lineup;
-        const bowlingLineup = bowlingTeam === team1 ? team1Lineup : team2Lineup;
-
-        // Add batters for Innings 2 from batting team's EDITED lineup
-        for (const name of battingLineup) addBatter(name, name);
-        if (battingLineup.length >= 2) setOpeningBatters(battingLineup[0], battingLineup[1]);
-
-        // Add bowlers ONLY from the fielding team's EDITED lineup for Innings 2!
-        for (let i = 0; i < bowlingLineup.length; i++) {
-          addBowler(`bw_${bowlingTeam}_${i}`, bowlingLineup[i]);
-        }
-        const initialBowler = bowlingLineup[bowlingLineup.length - 1] || bowlingLineup[0] || `${bowlingTeam} Bowler 1`;
-        setCurrentBowler(initialBowler);
-      }, 1500);
+    if (isMatchComplete()) {
+      setPhase("result");
+    } else {
+      setInningBreak(true);
     }
   };
+
+  // Auto-detect match completion or innings break seamlessly
+  useEffect(() => {
+    const ui = getUIState();
+    if (!ui) return;
+
+    if (ui.matchState.status === "completed" || ui.matchResult || isMatchComplete()) {
+      if (phase !== "result" && phase !== "completed") {
+        setPhase("result");
+      }
+    } else if (ui.isSecondInnings && phase === "innings-1") {
+      setInningBreak(true);
+    }
+  }, [getUIState, isMatchComplete, phase]);
+
+  const startSecondInningsManually = useCallback(() => {
+    const innings1BattingTeam = tossDecision === TossDecision.BAT ? (tossWinner || team1) : (tossWinner === team1 ? team2 : team1);
+    const innings2BattingTeam = innings1BattingTeam === team1 ? team2 : team1;
+    const bowlingTeam = innings2BattingTeam === team1 ? team2 : team1;
+    const battingLineup = innings2BattingTeam === team1 ? team1Lineup : team2Lineup;
+    const bowlingLineup = bowlingTeam === team1 ? team1Lineup : team2Lineup;
+
+    for (const name of battingLineup) addBatter(name, name);
+    if (battingLineup.length >= 2) setOpeningBatters(battingLineup[0], battingLineup[1]);
+
+    for (let i = 0; i < bowlingLineup.length; i++) {
+      addBowler(`bw_${bowlingTeam}_${i}`, bowlingLineup[i]);
+    }
+    const initialBowler = bowlingLineup[bowlingLineup.length - 1] || bowlingLineup[0] || `${bowlingTeam} Bowler 1`;
+    setCurrentBowler(initialBowler);
+    setPhase("innings-2");
+    setInningBreak(false);
+    refresh();
+  }, [tossDecision, tossWinner, team1, team2, team1Lineup, team2Lineup, addBatter, setOpeningBatters, addBowler, setCurrentBowler, refresh]);
 
   const setupSecondInningsIfNecessary = useCallback(() => {
     const ui = getUIState();
     if (!ui) return;
 
-    // Check if match is completely finished
-    if (ui.matchState.status === "completed" || ui.matchResult) {
+    if (ui.matchState.status === "completed" || ui.matchResult || isMatchComplete()) {
       setPhase("result");
       return;
     }
 
-    // Check if 1st innings just ended and 2nd innings needs setup
-    if (ui.isSecondInnings && (phase === "innings-1" || !ui.striker)) {
-      setPhase("innings-2");
-      const innings1BattingTeam = tossDecision === TossDecision.BAT ? (tossWinner || team1) : (tossWinner === team1 ? team2 : team1);
-      const innings2BattingTeam = innings1BattingTeam === team1 ? team2 : team1;
-      const bowlingTeam = innings2BattingTeam === team1 ? team2 : team1;
-      const battingLineup = innings2BattingTeam === team1 ? team1Lineup : team2Lineup;
-      const bowlingLineup = bowlingTeam === team1 ? team1Lineup : team2Lineup;
-
-      // Add batters for Innings 2 from batting team's lineup
-      for (const name of battingLineup) addBatter(name, name);
-      if (battingLineup.length >= 2) setOpeningBatters(battingLineup[0], battingLineup[1]);
-
-      // Add bowlers ONLY from the fielding team's lineup for Innings 2
-      for (let i = 0; i < bowlingLineup.length; i++) {
-        addBowler(`bw_${bowlingTeam}_${i}`, bowlingLineup[i]);
-      }
-      const initialBowler = bowlingLineup[bowlingLineup.length - 1] || bowlingLineup[0] || `${bowlingTeam} Bowler 1`;
-      setCurrentBowler(initialBowler);
-      refresh();
+    if (ui.isSecondInnings && phase === "innings-1") {
+      setInningBreak(true);
     }
-  }, [getUIState, phase, tossDecision, tossWinner, team1, team2, team1Lineup, team2Lineup, addBatter, setOpeningBatters, addBowler, setCurrentBowler, refresh]);
+  }, [getUIState, isMatchComplete, phase]);
 
   const handleRun = useCallback((runs: number) => {
     recordRun(runs);
@@ -680,62 +677,114 @@ export default function LiveMatchScreen() {
         </View>
       )}
 
-      {/* Innings Break */}
-      {inningBreak && (
-        <View className="flex-1 items-center justify-center p-5">
-          <GlassCard intensity="high" padding="xl" radius="xl" className="items-center gap-3" blurAmount={30} staggerIndex={0}>
-            <Text className="text-2xl font-bold text-foreground text-center tracking-tight">End of Innings {phase === "innings-1" ? "1" : "2"}</Text>
-            {uiState?.currentInnings && (
-              <Text className="text-lg text-muted">{uiState.currentInnings.battingTeam}: {uiState.currentInnings.totalRuns}/{uiState.currentInnings.totalWickets} ({uiState.oversString} ov)</Text>
-            )}
-            <Text className="text-sm text-muted">Preparing next innings...</Text>
-          </GlassCard>
-        </View>
-      )}
+      {/* 1. MATCH COMPLETE RESULT SCREEN (Triggers whenever match is completed by result or all-out in 2nd innings) */}
+      {(phase === "result" || isMatchComplete() || uiState?.matchResult || uiState?.matchState?.status === "completed") && !(phase === "innings-1" && !uiState?.isSecondInnings && !uiState?.matchState?.innings[0]?.isComplete) ? (
+        <View className="flex-1 p-5 justify-center items-center gap-5 bg-[#050B08]">
+          <GlassCard intensity="heavy" glowColor="#10B981" padding="xl" radius="xl" className="w-full gap-4 py-8 bg-[#0B1511] border-[#10B981]/30" blurAmount={30} staggerIndex={0}>
+            <LiquidGlassOverlay color="#10B981" variant="pulse" speed={1.5} intensity={0.6} />
+            <Text className="text-2xl font-black text-white text-center">🏆 Match Complete</Text>
+            <Text className="text-lg font-black text-[#10B981] text-center">{uiState?.matchResult?.description || "Match Finished"}</Text>
 
-      {/* Live Innings */}
-      {(phase === "innings-1" || phase === "innings-2") && !inningBreak && scorecardProps && (
-        <LiveScorecard {...scorecardProps} />
-      )}
-
-      {/* Result Phase */}
-      {phase === "result" && uiState?.matchResult && (
-        <View className="flex-1 p-5 justify-center items-center gap-5">
-          <GlassCard intensity="high" glowColor="#34C759" padding="xl" radius="xl" className="w-full gap-4 py-8" blurAmount={30} staggerIndex={0}>
-            <LiquidGlassOverlay color="#34C759" variant="pulse" speed={1.5} intensity={0.6} />
-            <Text className="text-2xl font-bold text-foreground text-center">🏆 Match Complete</Text>
-            <Text className="text-lg font-bold text-[#34C759] text-center">{uiState.matchResult.description}</Text>
-
-            <View className="gap-3">
-              <View className="bg-white/40 dark:bg-white/[0.05] rounded-2xl p-4">
-                <Text className="text-sm font-semibold text-muted">{team1}</Text>
-                <Text className="text-xl font-bold text-foreground">{uiState.matchResult.team1Score || (uiState.matchState.innings[0] ? `${uiState.matchState.innings[0].totalRuns}/${uiState.matchState.innings[0].totalWickets} (${CricketRulesEngine.formatOversString(uiState.matchState.innings[0].totalBalls, ballsPerOver)} ov)` : "")}</Text>
+            <View className="gap-3 w-full">
+              <View className="bg-[#060D0A] rounded-2xl p-4 border border-white/10 flex-row items-center justify-between">
+                <Text className="text-sm font-bold text-slate-300">{team1}</Text>
+                <Text className="text-xl font-black text-[#10B981]">
+                  {uiState?.matchState?.innings[0] ? `${uiState.matchState.innings[0].totalRuns}/${uiState.matchState.innings[0].totalWickets} (${CricketRulesEngine.formatOversString(uiState.matchState.innings[0].totalBalls, ballsPerOver)} ov)` : "—"}
+                </Text>
               </View>
-              <View className="bg-white/40 dark:bg-white/[0.05] rounded-2xl p-4">
-                <Text className="text-sm font-semibold text-muted">{team2}</Text>
-                <Text className="text-xl font-bold text-foreground">{uiState.matchResult.team2Score || (uiState.matchState.innings[1] ? `${uiState.matchState.innings[1].totalRuns}/${uiState.matchState.innings[1].totalWickets} (${CricketRulesEngine.formatOversString(uiState.matchState.innings[1].totalBalls, ballsPerOver)} ov)` : "")}</Text>
+              <View className="bg-[#060D0A] rounded-2xl p-4 border border-white/10 flex-row items-center justify-between">
+                <Text className="text-sm font-bold text-slate-300">{team2}</Text>
+                <Text className="text-xl font-black text-[#10B981]">
+                  {uiState?.matchState?.innings[1] ? `${uiState.matchState.innings[1].totalRuns}/${uiState.matchState.innings[1].totalWickets} (${CricketRulesEngine.formatOversString(uiState.matchState.innings[1].totalBalls, ballsPerOver)} ov)` : "—"}
+                </Text>
               </View>
             </View>
           </GlassCard>
 
           <View className="flex-col gap-3 w-full">
             <TouchableOpacity
-              className="bg-[#34C759] rounded-2xl py-4 items-center flex-row justify-center gap-2"
-              style={{ shadowColor: "#34C759", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 5 }}
+              className="bg-[#10B981] rounded-2xl py-4 items-center flex-row justify-center gap-2 shadow-lg shadow-emerald-500/30 active:scale-95"
               onPress={async () => { if (Platform.OS !== "web") await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setShowShareModal(true); }}
             >
-              <Text className="text-white font-bold text-lg">📤 Share Scorecard</Text>
+              <Text className="text-[#050B08] font-black text-base">📤 Share Scorecard</Text>
             </TouchableOpacity>
             <View className="flex-row gap-3">
-              <TouchableOpacity className="flex-1 bg-[#0066FF] rounded-2xl py-4 items-center" onPress={handleEndMatch}>
+              <TouchableOpacity className="flex-1 bg-white/10 border border-white/20 rounded-2xl py-4 items-center active:scale-95" onPress={handleEndMatch}>
                 <Text className="text-white font-bold">Finish</Text>
               </TouchableOpacity>
-              <TouchableOpacity className="flex-1 bg-white/50 dark:bg-white/[0.05] border border-white/30 dark:border-white/10 rounded-2xl py-4 items-center" onPress={() => { createMatch(format, team1, team2, overs, ballsPerOver, playersPerSide, inningsCount); setPhase("pre-match"); setTossWinner(""); setTossDecision(null); }}>
-                <Text className="text-foreground font-bold">New Match</Text>
+              <TouchableOpacity className="flex-1 bg-white/10 border border-white/20 rounded-2xl py-4 items-center active:scale-95" onPress={() => { createMatch(format, team1, team2, overs, ballsPerOver, playersPerSide, inningsCount); setPhase("pre-match"); setTossWinner(""); setTossDecision(null); }}>
+                <Text className="text-white font-bold">New Match</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
+      ) : (inningBreak || (phase === "innings-1" && (uiState?.isSecondInnings || uiState?.matchState?.innings[0]?.isComplete || uiState?.matchState?.innings[0]?.isAllOut))) ? (
+        /* 2. INNINGS BREAK & CHASE TARGET SCREEN WITH FULL SCORECARD */
+        <ScrollView className="flex-1 bg-[#050B08]" contentContainerStyle={{ padding: 20, gap: 20 }}>
+          {(() => {
+            const inns1 = uiState?.matchState?.innings[0];
+            const inns1Team = inns1?.battingTeam || team1;
+            const inns1Runs = inns1?.totalRuns ?? 0;
+            const inns1Wickets = inns1?.totalWickets ?? 0;
+            const inns1Overs = inns1 ? CricketRulesEngine.formatOversString(inns1.totalBalls, ballsPerOver) : "0.0";
+            const target = inns1Runs + 1;
+            const rrr = (target / overs).toFixed(2);
+
+            return (
+              <View className="gap-5">
+                <GlassCard intensity="heavy" radius="xl" padding="lg" className="w-full bg-[#0B1511] border-[#10B981]/30 gap-4 items-center">
+                  <View className="w-14 h-14 rounded-2xl bg-[#10B981]/20 border border-[#10B981]/40 items-center justify-center shadow-lg">
+                    <Text className="text-3xl">🏆</Text>
+                  </View>
+                  <Text className="text-xl font-black text-white text-center tracking-tight">1ST INNINGS COMPLETED</Text>
+                  
+                  <View className="bg-[#060D0A] p-4 rounded-xl border border-white/10 w-full items-center gap-1">
+                    <Text className="text-xs font-bold text-slate-400">{inns1Team}</Text>
+                    <Text className="text-3xl font-black text-[#10B981]">
+                      {inns1Runs}/{inns1Wickets} <Text className="text-xs font-bold text-slate-300">({inns1Overs} ov)</Text>
+                    </Text>
+                  </View>
+
+                  <View className="bg-[#10B981]/15 p-4 rounded-xl border border-[#10B981]/30 w-full items-center gap-1">
+                    <Text className="text-[10px] font-black text-[#10B981] uppercase tracking-widest">RUN CHASE TARGET</Text>
+                    <Text className="text-2xl font-black text-white">
+                      {target} RUNS <Text className="text-xs font-bold text-slate-300">in {overs * ballsPerOver} balls</Text>
+                    </Text>
+                    <Text className="text-xs font-bold text-amber-300 mt-0.5">
+                      Required Run Rate: {rrr}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => startSecondInningsManually()}
+                    className="w-full bg-[#10B981] py-4 rounded-xl items-center shadow-lg shadow-emerald-500/30 active:scale-95 mt-1"
+                  >
+                    <Text className="text-base font-black text-[#050B08]">▶️ START 2ND INNINGS</Text>
+                  </TouchableOpacity>
+                </GlassCard>
+
+                {/* 1st Innings Full Cricbuzz / CricHeroes Dark Scorecard */}
+                {uiState?.matchState && (
+                  <View className="mt-2 border-t border-[#10B981]/20 pt-4">
+                    <Text className="text-sm font-black text-[#10B981] uppercase tracking-widest mb-3">📊 1st Innings Full Scorecard</Text>
+                    <FullScorecardView matchState={uiState.matchState} />
+                  </View>
+                )}
+              </View>
+            );
+          })()}
+        </ScrollView>
+      ) : (
+        /* 3. LIVE SCORECARD INNINGS SCREEN */
+        scorecardProps ? (
+          <LiveScorecard {...scorecardProps} />
+        ) : (
+          <View className="flex-1 bg-[#050B08] justify-center items-center">
+            <TouchableOpacity onPress={() => startSecondInningsManually()} className="bg-[#10B981] px-6 py-3 rounded-xl">
+              <Text className="text-sm font-black text-[#050B08]">▶️ Start 2nd Innings</Text>
+            </TouchableOpacity>
+          </View>
+        )
       )}
 
       {showShareModal && shareScorecardData && (

@@ -28,6 +28,7 @@ import { BoundaryCelebration } from "./animations/boundary-celebration";
 import { WicketAnimation } from "./animations/wicket-animation";
 import { ConfettiBurst } from "./animations/confetti-burst";
 import { CelebrationPopperModal } from "./animations/celebration-popper-modal";
+import { FullScorecardView } from "./full-scorecard-view";
 import type {
   BallRecord,
   FallOfWicket,
@@ -658,14 +659,8 @@ export function LiveScorecard({
   );
 
   const renderNextBatterPicker = () => {
-    // Filter batters from battingOrder who are not out and not currently at the crease
-    const availableNextBatters = battingOrder.filter((b) => {
-      if (b.status === "out") return false;
-      if (b.status === "batting") return false;
-      if (striker && b.name === striker.name) return false;
-      if (nonStriker && b.name === nonStriker.name) return false;
-      return true;
-    });
+    // Identify the active not-out batter who remains at the crease
+    const notOutBatterName = dismissedBatterName === striker?.name ? nonStriker?.name : (dismissedBatterName === nonStriker?.name ? striker?.name : undefined);
 
     return (
       <View className="bg-surface rounded-2xl p-4 gap-3 border border-primary/30 shadow-xl">
@@ -682,17 +677,23 @@ export function LiveScorecard({
           Select who comes in to bat next for <Text className="font-bold text-foreground">{isSecondInnings ? team2Name : team1Name}</Text> after {dismissedBatterName || "wicket"}.
         </Text>
 
-        {availableNextBatters.length === 0 ? (
-          <View className="bg-background rounded-xl p-4 items-center gap-2">
-            <Text className="text-sm text-muted italic">All squad batters have already batted or team is all out.</Text>
-          </View>
-        ) : (
-          <View className="gap-2 mt-1">
-            {availableNextBatters.map((batter, idx) => (
+        <View className="gap-2 mt-1">
+          {battingOrder.map((batter, idx) => {
+            const isOut = batter.status === "out";
+            const isCurrentlyBatting = (notOutBatterName && batter.name === notOutBatterName) || (batter.status === "batting" && batter.balls > 0);
+            const isSelectable = !isOut && !isCurrentlyBatting && batter.balls === 0 && batter.runs === 0;
+
+            return (
               <TouchableOpacity
                 key={batter.name}
-                className="bg-background border border-border rounded-xl p-3.5 flex-row items-center gap-3 active:opacity-80"
+                disabled={!isSelectable}
+                className={`border rounded-xl p-3 flex-row items-center gap-3 ${
+                  isSelectable
+                    ? "bg-background border-[#10B981]/40 active:opacity-80"
+                    : "bg-background/40 border-border/20 opacity-45"
+                }`}
                 onPress={async () => {
+                  if (!isSelectable) return;
                   if (Platform.OS !== "web") {
                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   }
@@ -702,20 +703,36 @@ export function LiveScorecard({
                   setShowNextBatterPicker(false);
                 }}
               >
-                <View className="w-9 h-9 rounded-full bg-primary/10 items-center justify-center">
-                  <Text className="text-sm font-bold text-primary">#{idx + 1}</Text>
+                <View className={`w-8 h-8 rounded-full items-center justify-center ${
+                  isSelectable ? "bg-[#10B981]/20 border border-[#10B981]/40" : "bg-white/10"
+                }`}>
+                  <Text className={`text-xs font-bold ${isSelectable ? "text-[#10B981]" : "text-slate-400"}`}>#{idx + 1}</Text>
                 </View>
+
                 <View className="flex-1">
-                  <Text className="text-sm font-bold text-foreground">{batter.name}</Text>
-                  <Text className="text-xs text-muted mt-0.5">Yet to bat • Batter</Text>
+                  <Text className={`text-sm font-bold ${isSelectable ? "text-foreground" : "text-slate-400"}`}>{batter.name}</Text>
+                  <Text className="text-[11px] text-muted mt-0.5">
+                    {isOut ? "Out • Dismissed" : isCurrentlyBatting ? "Currently Batting at crease" : "Yet to bat • Batter"}
+                  </Text>
                 </View>
-                <View className="bg-primary/10 rounded-lg px-2.5 py-1.5 border border-primary/20">
-                  <Text className="text-xs font-bold text-primary">SELECT</Text>
-                </View>
+
+                {isOut ? (
+                  <View className="bg-rose-500/10 rounded-lg px-2.5 py-1 border border-rose-500/20">
+                    <Text className="text-[10px] font-bold text-rose-400">OUT</Text>
+                  </View>
+                ) : isCurrentlyBatting ? (
+                  <View className="bg-amber-500/10 rounded-lg px-2.5 py-1 border border-amber-500/20">
+                    <Text className="text-[10px] font-bold text-amber-400">BATTING</Text>
+                  </View>
+                ) : (
+                  <View className="bg-[#10B981]/20 rounded-lg px-2.5 py-1.5 border border-[#10B981]/40">
+                    <Text className="text-xs font-bold text-[#10B981]">SELECT</Text>
+                  </View>
+                )}
               </TouchableOpacity>
-            ))}
-          </View>
-        )}
+            );
+          })}
+        </View>
 
         <TouchableOpacity
           className="py-2.5 items-center active:opacity-80 border-t border-border/20 mt-1"
@@ -949,11 +966,14 @@ export function LiveScorecard({
                 {format.toUpperCase()}
               </Text>
             </View>
-            {tossInfo && (
-              <View className="bg-white/10 rounded-full px-2.5 py-0.5 border border-white/15">
-                <Text className="text-[9px] font-bold text-slate-200">{tossInfo}</Text>
-              </View>
-            )}
+            <TouchableOpacity
+              onPress={() => setShowFullScorecard(!showFullScorecard)}
+              className="bg-[#10B981]/20 border border-[#10B981]/50 rounded-full px-3 py-0.5"
+            >
+              <Text className="text-[10px] font-black text-[#10B981]">
+                {showFullScorecard ? "🏏 Keypad" : "📊 Scorecard"}
+              </Text>
+            </TouchableOpacity>
           </View>
           <View className="flex-row items-center gap-2">
             {powerplayPhase && powerplayPhase.isActive && (
@@ -1165,6 +1185,49 @@ export function LiveScorecard({
               <Text className="text-white font-bold text-sm">Finish Match</Text>
             </TouchableOpacity>
           </GlassCard>
+        </View>
+      ) : showFullScorecard ? (
+        <View className="mx-5 mt-4">
+          <FullScorecardView
+            matchState={{
+              ballsPerOver: chaseBallsPerOver ?? 6,
+              innings: [
+                {
+                  id: "1",
+                  inningsNumber: 1,
+                  battingTeam: team1Name,
+                  bowlingTeam: team2Name,
+                  totalRuns: currentRuns,
+                  totalWickets: currentWickets,
+                  totalBalls: Math.round((parseFloat(oversString) || 0) * 6),
+                  isComplete: isSecondInnings,
+                  isAllOut: false,
+                  battingOrder: battingOrder.map(b => ({
+                    ...b,
+                    ballsFaced: b.balls,
+                  })),
+                  bowlers: bowlersFigures.map(b => ({
+                    id: b.name,
+                    name: b.name,
+                    ballsBowled: Math.round((parseFloat(String(b.overs || "0")) || 0) * 6),
+                    maidens: b.maidens,
+                    runsConceded: b.runs,
+                    wickets: b.wickets,
+                    economy: parseFloat(String(b.economy || "0")) || 0,
+                  })),
+                  deliveries: [],
+                  fallOfWickets: fallOfWickets.map((f, i) => ({
+                    wicketNumber: f.wicketNumber ?? (i + 1),
+                    batterName: f.batterName,
+                    runsAtDismissal: f.runsAtDismissal,
+                    oversAtDismissal: f.oversAtDismissal,
+                    ballsAtDismissal: f.ballsAtDismissal,
+                  })),
+                } as any
+              ]
+            } as any}
+            onClose={() => setShowFullScorecard(false)}
+          />
         </View>
       ) : showFielderPicker ? (
         <View className="mx-5 mt-4">

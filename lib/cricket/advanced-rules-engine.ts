@@ -476,7 +476,7 @@ export class CricketRulesEngine {
       // Multiply by 2: config stores innings-per-side, but maxInnings is total innings per match
       // For T20/ODI/T10 (1 per side): total = 2
       // For Test (2 per side): total = 4 (engine caps at 2 for now)
-      maxInnings: customInningsCount ?? config.maxInningsPerSide * 2,
+      maxInnings: Math.max(2, (customInningsCount ?? config.maxInningsPerSide) * 2),
       ballsPerOver,
       pendingRoster: {
         batters: [],
@@ -1087,6 +1087,8 @@ export class CricketRulesEngine {
     // Check if all out — uses configurable players per side
     if (innings.totalWickets >= this.state.playersPerSide - 1) {
       innings.isAllOut = true;
+      innings.isComplete = true;
+      return;
     }
 
     // Track who was the striker before dismissal for new partnership setup
@@ -1094,7 +1096,6 @@ export class CricketRulesEngine {
     const prevNonStriker = innings.currentNonStriker;
 
     // If the striker got out, new batter comes in
-    // Use currentBatterIndex BEFORE incrementing to avoid skipping the next batter
     if (outIndex === innings.currentStriker) {
       innings.currentStriker = innings.currentBatterIndex;
       innings.currentBatterIndex += 1;
@@ -1103,6 +1104,17 @@ export class CricketRulesEngine {
     else if (outIndex === innings.currentNonStriker) {
       innings.currentNonStriker = innings.currentBatterIndex;
       innings.currentBatterIndex += 1;
+    }
+
+    // ENSURE STRIKER AND NON-STRIKER ARE NEVER THE SAME PLAYER INDEX!
+    if (innings.currentStriker === innings.currentNonStriker) {
+      const availableIdx = innings.battingOrder.findIndex(
+        (b, idx) => idx !== innings.currentNonStriker && !b.isOut && b.status !== "out"
+      );
+      if (availableIdx >= 0) {
+        innings.currentStriker = availableIdx;
+        innings.currentBatterIndex = Math.max(innings.currentBatterIndex, availableIdx + 1);
+      }
     }
 
     // ===== START NEW PARTNERSHIP =====
@@ -1147,27 +1159,50 @@ export class CricketRulesEngine {
     if (targetIdx < 0) return false;
 
     const targetBatter = innings.battingOrder[targetIdx];
-    if (targetBatter.isOut || targetBatter.status === "out") return false;
+    if (!targetBatter || targetBatter.isOut || targetBatter.status === "out") return false;
+
+    // PREVENT DUPLICATE BATTER: If target batter is ALREADY at the crease, reject!
+    if (targetIdx === innings.currentNonStriker || targetIdx === innings.currentStriker) {
+      return false;
+    }
 
     const currentStrikerBatter = innings.battingOrder[innings.currentStriker];
     const currentNonStrikerBatter = innings.battingOrder[innings.currentNonStriker];
 
-    // If current striker hasn't faced a ball (ballsFaced === 0 && runs === 0), swap them for targetBatter
+    // If current striker has not faced a ball (ballsFaced === 0 && runs === 0), replace striker
     if (currentStrikerBatter && currentStrikerBatter.name !== batterName && currentStrikerBatter.ballsFaced === 0 && currentStrikerBatter.runs === 0) {
       if (currentStrikerBatter.status === "batting") {
         currentStrikerBatter.status = "did_not_bat";
       }
       innings.currentStriker = targetIdx;
       targetBatter.status = "batting";
-    } else if (currentNonStrikerBatter && currentNonStrikerBatter.name !== batterName && currentNonStrikerBatter.ballsFaced === 0 && currentNonStrikerBatter.runs === 0) {
+    }
+    // Else if current non-striker has not faced a ball, replace non-striker
+    else if (currentNonStrikerBatter && currentNonStrikerBatter.name !== batterName && currentNonStrikerBatter.ballsFaced === 0 && currentNonStrikerBatter.runs === 0) {
       if (currentNonStrikerBatter.status === "batting") {
         currentNonStrikerBatter.status = "did_not_bat";
       }
       innings.currentNonStriker = targetIdx;
       targetBatter.status = "batting";
-    } else {
-      innings.currentStriker = targetIdx;
-      targetBatter.status = "batting";
+    }
+    // Fallback: replace striker ONLY if striker !== nonStriker
+    else {
+      if (innings.currentStriker !== innings.currentNonStriker) {
+        const oldStriker = innings.battingOrder[innings.currentStriker];
+        if (oldStriker && oldStriker.ballsFaced === 0 && oldStriker.runs === 0 && oldStriker.status === "batting") {
+          oldStriker.status = "did_not_bat";
+        }
+        innings.currentStriker = targetIdx;
+        targetBatter.status = "batting";
+      }
+    }
+
+    // STRICT SANITY CHECK: Ensure striker and non-striker can NEVER be equal!
+    if (innings.currentStriker === innings.currentNonStriker) {
+      const fallbackIdx = innings.battingOrder.findIndex((b, idx) => idx !== targetIdx && !b.isOut && b.status !== "out");
+      if (fallbackIdx >= 0) {
+        innings.currentNonStriker = fallbackIdx;
+      }
     }
 
     if (innings.currentPartnership) {
