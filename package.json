@@ -5,6 +5,14 @@
   "engines": {
     "node": "20.x"
   },
+  "pnpm": {
+    "overrides": {
+      "lru-cache": "^10.4.3"
+    }
+  },
+  "resolutions": {
+    "lru-cache": "^10.4.3"
+  },
   "main": "expo-router/entry",
   "scripts": {
     "dev": "concurrently -k \"pnpm dev:server\" \"pnpm dev:metro\"",
